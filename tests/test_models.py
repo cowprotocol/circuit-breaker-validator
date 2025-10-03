@@ -6,7 +6,7 @@ from fractions import Fraction
 import math
 import pytest
 
-from circuit_breaker_validator.src.models import (
+from circuit_breaker_validator.models import (
     OnchainTrade,
     OffchainTrade,
     VolumeFeePolicy,

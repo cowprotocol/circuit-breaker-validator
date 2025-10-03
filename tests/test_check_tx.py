@@ -4,13 +4,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 from hexbytes import HexBytes
-from circuit_breaker_validator.src.models import (
+from circuit_breaker_validator.models import (
     OnchainSettlementData,
     OffchainSettlementData,
     OnchainTrade,
     OffchainTrade,
 )
-from circuit_breaker_validator.src.check_tx import (
+from circuit_breaker_validator.check_tx import (
     check_solver,
     check_orders,
     check_score,
@@ -480,5 +480,5 @@ def test_check_score(difference, expected_result):
     offchain_data = Mock(spec=OffchainSettlementData)
     offchain_data.score = 10**18
 
-    with patch("src.check_tx.compute_score", return_value=10**18 + difference):
+    with patch("circuit_breaker_validator.check_tx.compute_score", return_value=10**18 + difference):
         assert check_score(onchain_data, offchain_data) == expected_result
