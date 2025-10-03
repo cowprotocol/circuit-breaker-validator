@@ -15,6 +15,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/cowprotocol/circuit-breaker",
     packages=find_packages(),
+    package_data={"circuit_breaker_validator": ["py.typed"]},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
