@@ -3,7 +3,10 @@
 from fractions import Fraction
 
 from circuit_breaker_validator.constants import NATIVE_TOKEN_PRICE
-from circuit_breaker_validator.models import OffchainSettlementData, OnchainSettlementData
+from circuit_breaker_validator.models import (
+    OffchainSettlementData,
+    OnchainSettlementData,
+)
 
 
 def compute_score(

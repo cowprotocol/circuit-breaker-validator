@@ -6,7 +6,10 @@ Class to run tests on a transaction.
 
 from circuit_breaker_validator.exceptions import InvalidSettlement
 from circuit_breaker_validator.logger import logger
-from circuit_breaker_validator.models import OffchainSettlementData, OnchainSettlementData
+from circuit_breaker_validator.models import (
+    OffchainSettlementData,
+    OnchainSettlementData,
+)
 from circuit_breaker_validator.scores import compute_score
 
 SCORE_CHECK_THRESHOLD = 10**12

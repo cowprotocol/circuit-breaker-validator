@@ -480,5 +480,8 @@ def test_check_score(difference, expected_result):
     offchain_data = Mock(spec=OffchainSettlementData)
     offchain_data.score = 10**18
 
-    with patch("circuit_breaker_validator.check_tx.compute_score", return_value=10**18 + difference):
+    with patch(
+        "circuit_breaker_validator.check_tx.compute_score",
+        return_value=10**18 + difference,
+    ):
         assert check_score(onchain_data, offchain_data) == expected_result
