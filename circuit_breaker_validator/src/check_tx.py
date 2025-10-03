@@ -4,10 +4,10 @@ Class to run tests on a transaction.
 
 # pylint: disable=logging-fstring-interpolation
 
-from src.exceptions import InvalidSettlement
-from src.logger import logger
-from src.models import OffchainSettlementData, OnchainSettlementData
-from src.scores import compute_score
+from circuit_breaker_validator.src.exceptions import InvalidSettlement
+from circuit_breaker_validator.src.logger import logger
+from circuit_breaker_validator.src.models import OffchainSettlementData, OnchainSettlementData
+from circuit_breaker_validator.src.scores import compute_score
 
 SCORE_CHECK_THRESHOLD = 10**12
 

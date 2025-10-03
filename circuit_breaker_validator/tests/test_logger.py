@@ -1,6 +1,6 @@
 """Test logger functions"""
 
-from src.logger import get_logger
+from circuit_breaker_validator.src.logger import get_logger
 
 
 def test_logger_writes_to_stdout(capsys):

@@ -5,13 +5,13 @@ from unittest.mock import Mock
 import pytest
 from hexbytes import HexBytes
 
-from src.models import (
+from circuit_breaker_validator.src.models import (
     OnchainTrade,
     OffchainTrade,
     OnchainSettlementData,
     OffchainSettlementData,
 )
-from src.scores import compute_score
+from circuit_breaker_validator.src.scores import compute_score
 
 
 @pytest.mark.parametrize(

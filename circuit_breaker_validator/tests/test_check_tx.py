@@ -4,13 +4,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 from hexbytes import HexBytes
-from src.models import (
+from circuit_breaker_validator.src.models import (
     OnchainSettlementData,
     OffchainSettlementData,
     OnchainTrade,
     OffchainTrade,
 )
-from src.check_tx import (
+from circuit_breaker_validator.src.check_tx import (
     check_solver,
     check_orders,
     check_score,
