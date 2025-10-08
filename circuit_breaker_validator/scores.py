@@ -2,12 +2,12 @@
 
 from fractions import Fraction
 
-from circuit_breaker_validator.constants import NATIVE_TOKEN_PRICE
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
     OnchainSettlementData,
 )
 
+NATIVE_TOKEN_PRICE = 10**18
 
 def compute_score(
     onchain_data: OnchainSettlementData,

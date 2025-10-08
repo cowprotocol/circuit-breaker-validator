@@ -30,4 +30,4 @@ def get_logger(name: str = "default") -> logging.Logger:
     return result_logger
 
 
-logger = get_logger()
+logger = get_logger(name="validator")
