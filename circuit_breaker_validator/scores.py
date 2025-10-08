@@ -9,6 +9,7 @@ from circuit_breaker_validator.models import (
 
 NATIVE_TOKEN_PRICE = 10**18
 
+
 def compute_score(
     onchain_data: OnchainSettlementData,
     offchain_data: OffchainSettlementData,
