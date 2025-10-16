@@ -106,6 +106,8 @@ def test_trade_price_improvement(
     trade.sell_amount = sell_amount
     trade.buy_amount = buy_amount
     trade.kind = kind
+    # Add surplus mock that returns the same value as expected_improvement
+    trade.surplus = Mock(return_value=expected_improvement)
 
     quote = Quote(
         sell_amount=quote_sell_amount,
@@ -319,6 +321,9 @@ def test_price_improvement_protocol_fee(
     trade.kind = kind
     trade.volume = Mock(return_value=amount)
     trade.price_improvement = Mock(return_value=price_improvement_value)
+    trade.surplus = Mock(
+        return_value=price_improvement_value
+    )  # Add surplus mock with same value
 
     # Reverse the fee application
     new_trade = fee_policy.reverse_protocol_fee(trade)
