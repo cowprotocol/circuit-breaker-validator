@@ -141,34 +141,50 @@ class OnchainTrade(Trade):
         raise ValueError(f"Order kind {self.kind} is invalid.")
 
     def price_improvement(self, quote: Quote) -> int:
-        """Compute price improvement compared to a reference quote.
+        """Compute price improvement compared to a reference quote and limit price.
 
-        Price improvement measures how much better the executed trade is compared to quote.
-        For sell orders: price_improvement = executed_buy_amount - expected_buy_amount_from_quote
-        For buy orders: price_improvement = expected_sell_amount_from_quote - executed_sell_amount
+        Price improvement measures how much better the executed trade is compared to the better
+        of quote and limit price. The smaller improvement value is used, as that results in a
+        smaller fee.
+
+        For sell orders: price_improvement =
+            executed_buy_amount - max(buy_amount_from_quote, limit_buy_amount)
+        For buy orders: price_improvement =
+            min(sell_amount_from_quote, limit_sell_amount) - executed_sell_amount
 
         The calculation uses the effective amounts from the quote that account for gas fees:
         1. Get effective sell and buy amounts from the quote
         2. Compare the actual trade to the hypothetical quote-based trade
+        3. Compare with the limit price (surplus)
+        4. Return the minimum of the two improvements
 
         For partially fillable orders, rounding is such that the reference for computing price
         improvement is as if the quote would determine the limit price. That means that for sell
         orders the quote buy amount is rounded up and for buy orders the quote sell amount is
         rounded down.
         """
+        # Calculate price improvement compared to quote
         effective_sell_amount = quote.effective_sell_amount(self.kind)
         effective_buy_amount = quote.effective_buy_amount(self.kind)
         if self.kind == "sell":
             current_limit_quote_amount = math.ceil(
                 effective_buy_amount * Fraction(self.sell_amount, effective_sell_amount)
             )
-            return self.buy_amount - current_limit_quote_amount
-        if self.kind == "buy":
+            quote_price_improvement = self.buy_amount - current_limit_quote_amount
+        elif self.kind == "buy":
             current_quote_sell_amount = int(
                 effective_sell_amount * Fraction(self.buy_amount, effective_buy_amount)
             )
-            return current_quote_sell_amount - self.sell_amount
-        raise ValueError(f"Order kind {self.kind} is invalid.")
+            quote_price_improvement = current_quote_sell_amount - self.sell_amount
+        else:
+            raise ValueError(f"Order kind {self.kind} is invalid.")
+
+        # Calculate price improvement compared to limit price (surplus)
+        limit_price_improvement = self.surplus()
+
+        # Return the minimum of the two improvements
+        # "Better" means smaller improvement, as that results in a smaller fee
+        return min(quote_price_improvement, limit_price_improvement)
 
 
 class FeePolicy(ABC):
@@ -328,6 +344,8 @@ class PriceImprovementFeePolicy(FeePolicy):
         Returns a new trade object with the fee reversed.
         """
         new_trade = deepcopy(trade)
+
+        # Calculate price improvement compared to quote
         price_improvement = trade.price_improvement(self.quote)
         volume = trade.volume()
         price_improvement_fee = max(
