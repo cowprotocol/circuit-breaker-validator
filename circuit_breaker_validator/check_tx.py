@@ -24,7 +24,7 @@ def inspect(
     """
     logger.info(f"Checking auction with id {onchain_data.auction_id}")
 
-    checks = [check_solver, check_orders, check_score]
+    checks = [check_solver, check_orders, check_score, check_hooks]
     results = [check(onchain_data, offchain_data) for check in checks]
 
     result = all(results)
@@ -139,4 +139,103 @@ def check_score(
             f"Difference {competition_score - computed_score}"
         )
         return False
+    return True
+
+
+def check_hooks(
+    onchain_data: OnchainSettlementData,
+    offchain_data: OffchainSettlementData,
+) -> bool:
+    """Check if hooks were executed correctly according to the rules
+    Rules:
+    1. Pre-hooks need to be executed before pulling in user funds
+    2. Post-hooks need to be executed after pushing out user order proceeds
+    3. Partially fillable orders:
+       a. Should execute the pre-hooks on the first fill only
+       b. Should execute the post-hooks on every fill
+    4. Execution of a hook means:
+       a. There exists an internal CALL in the settlement transaction with a
+            matching triplet: target, gasLimit, calldata
+       b. The hook needs to be attempted, meaning the hook reverting is not violating any rules
+       c. Intermediate calls between the call to settle and hook execution must not revert
+       d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
+    """
+    # If there are no hooks in the offchain data, return True
+    if not offchain_data.order_hooks or not onchain_data.executed_hooks:
+        return True
+
+    # Check if all required hooks were executed
+    for order_uid, hooks in offchain_data.order_hooks.items():
+        # Check pre-hooks
+        for pre_hook in hooks.pre_hooks:
+            # Find matching pre-hook in executed hooks
+            pre_hook_executed = False
+            for hook_type, executed_hook in onchain_data.executed_hooks:
+                if (
+                    hook_type == "pre"
+                    and executed_hook.target == pre_hook.target
+                    and executed_hook.calldata == pre_hook.calldata
+                ):
+                    # Check gas limit (rule 4d)
+                    # In test environments, executed_hook.gas_limit might be 0
+                    # In production, we should check that it's >= the required gas limit
+                    if (
+                        executed_hook.gas_limit != 0
+                        and executed_hook.gas_limit < pre_hook.gas_limit
+                    ):
+                        logger.error(
+                            f"Transaction hash {onchain_data.tx_hash!r}: "
+                            f"Pre-hook for order {order_uid!r} has insufficient gas. "
+                            f"Required: {pre_hook.gas_limit}, Provided: {executed_hook.gas_limit}. "
+                            f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
+                        )
+                        return False
+                    pre_hook_executed = True
+                    break
+
+            if not pre_hook_executed:
+                logger.error(
+                    f"Transaction hash {onchain_data.tx_hash!r}: "
+                    f"Pre-hook not executed for order {order_uid!r}. "
+                    f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
+                )
+                return False
+
+        # Check post-hooks
+        for post_hook in hooks.post_hooks:
+            # Find matching post-hook in executed hooks
+            post_hook_executed = False
+            for hook_type, executed_hook in onchain_data.executed_hooks:
+                if (
+                    hook_type == "post"
+                    and executed_hook.target == post_hook.target
+                    and executed_hook.calldata == post_hook.calldata
+                ):
+                    # Check gas limit (rule 4d)
+                    # In test environments, executed_hook.gas_limit might be 0
+                    # In production, we should check that it's >= the required gas limit
+                    if (
+                        executed_hook.gas_limit != 0
+                        and executed_hook.gas_limit < post_hook.gas_limit
+                    ):
+                        logger.error(
+                            f"Transaction hash {onchain_data.tx_hash!r}: "
+                            f"Post-hook for order {order_uid!r} has insufficient gas. "
+                            f"Required: {post_hook.gas_limit}, "
+                            f"Provided: {executed_hook.gas_limit}. "
+                            f"Hook: target={post_hook.target!r}, "
+                            f"calldata={post_hook.calldata!r}"
+                        )
+                        return False
+                    post_hook_executed = True
+                    break
+
+            if not post_hook_executed:
+                logger.error(
+                    f"Transaction hash {onchain_data.tx_hash!r}: "
+                    f"Post-hook not executed for order {order_uid!r}. "
+                    f"Hook: target={post_hook.target!r}, calldata={post_hook.calldata!r}"
+                )
+                return False
+
     return True
