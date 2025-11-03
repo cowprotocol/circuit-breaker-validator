@@ -33,6 +33,10 @@ def compute_score(
     """
     score = 0
     for trade in onchain_data.trades:
+        # missing native price counts as zero score
+        if trade.buy_token not in offchain_data.native_prices:
+            continue
+
         raw_surplus = trade.raw_surplus(
             offchain_data.trade_fee_policies.get(trade.order_uid, [])
         )
