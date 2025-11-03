@@ -67,6 +67,7 @@ def test_compute_score(order_type, surplus_token, expected_score):
 
     assert compute_score(onchain_data, offchain_data) == expected_score
 
+
 def test_compute_score_missing_native_price():
     "Test for scores being zero for trades with missing native price"
     sell_token = HexBytes("0x01")
