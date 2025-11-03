@@ -1,7 +1,10 @@
 """Functionality to compute scores"""
 
+# pylint: disable=logging-fstring-interpolation
+
 from fractions import Fraction
 
+from circuit_breaker_validator.logger import logger
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
     OnchainSettlementData,
@@ -33,6 +36,15 @@ def compute_score(
     """
     score = 0
     for trade in onchain_data.trades:
+        # missing native price counts as zero score
+        if trade.buy_token not in offchain_data.native_prices:
+            logger.info(
+                f"Auction {onchain_data.auction_id}, settlement {onchain_data.tx_hash!r}: "
+                f"Missing native price for trade {trade.order_uid!r} and buy token "
+                f"{trade.buy_token!r}. Skipping score computation for this order."
+            )
+            continue
+
         raw_surplus = trade.raw_surplus(
             offchain_data.trade_fee_policies.get(trade.order_uid, [])
         )
