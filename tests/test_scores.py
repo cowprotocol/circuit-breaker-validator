@@ -70,9 +70,12 @@ def test_compute_score(order_type, surplus_token, expected_score):
 
 def test_compute_score_missing_native_price():
     "Test for scores being zero for trades with missing native price"
-    sell_token = HexBytes("0x01")
-    buy_token = HexBytes("0x02")
-    order_uid = HexBytes("0x03")
+    auction_id = 1
+    tx_hash = HexBytes("0x00")
+    solver = HexBytes("0x01")
+    order_uid = HexBytes("0x02")
+    sell_token = HexBytes("0x03")
+    buy_token = HexBytes("0x04")
     raw_surplus = 0
 
     offchain_trade = Mock(spec=OffchainTrade)
@@ -85,8 +88,7 @@ def test_compute_score_missing_native_price():
     trade.buy_token = buy_token
     trade.surplus_token = Mock(return_value=trade.buy_token)
 
-    onchain_data = Mock(spec=OnchainSettlementData)
-    onchain_data.trades = [trade]
+    onchain_data = OnchainSettlementData(auction_id, tx_hash, solver, [trade])
 
     offchain_data = Mock(spec=OffchainSettlementData)
     offchain_data.trades = [offchain_trade]
