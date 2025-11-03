@@ -68,16 +68,32 @@ def test_compute_score(order_type, surplus_token, expected_score):
     assert compute_score(onchain_data, offchain_data) == expected_score
 
 
-def test_compute_score_missing_native_price():
+@pytest.mark.parametrize(
+    "auction_id,tx_hash,solver,order_uid,sell_token,buy_token,raw_surplus,expected_score",
+    [
+        (
+            1,
+            HexBytes("0x00"),
+            HexBytes("0x01"),
+            HexBytes("0x02"),
+            HexBytes("0x03"),
+            HexBytes("0x04"),
+            0,
+            0,
+        ),
+    ],
+)
+def test_compute_score_missing_native_price(
+    auction_id,
+    tx_hash,
+    solver,
+    order_uid,
+    sell_token,
+    buy_token,
+    raw_surplus,
+    expected_score,
+):
     "Test for scores being zero for trades with missing native price"
-    auction_id = 1
-    tx_hash = HexBytes("0x00")
-    solver = HexBytes("0x01")
-    order_uid = HexBytes("0x02")
-    sell_token = HexBytes("0x03")
-    buy_token = HexBytes("0x04")
-    raw_surplus = 0
-
     offchain_trade = Mock(spec=OffchainTrade)
     offchain_trade.order_uid = order_uid
 
@@ -95,4 +111,4 @@ def test_compute_score_missing_native_price():
     offchain_data.trade_fee_policies = {}
     offchain_data.native_prices = {}
 
-    assert compute_score(onchain_data, offchain_data) == 0
+    assert compute_score(onchain_data, offchain_data) == expected_score
