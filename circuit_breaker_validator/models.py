@@ -53,6 +53,23 @@ class Quote:
 
 
 @dataclass
+class Hook:
+    """Class to describe a hook"""
+
+    target: HexBytes
+    calldata: HexBytes
+    gas_limit: int
+
+
+@dataclass
+class Hooks:
+    """Class to describe hooks for an order"""
+
+    pre_hooks: list[Hook]
+    post_hooks: list[Hook]
+
+
+@dataclass
 class Trade:
     """Base class for trades"""
 
@@ -214,6 +231,9 @@ class OnchainSettlementData:
     tx_hash: HexBytes
     solver: HexBytes
     trades: list[OnchainTrade]
+    executed_hooks: list[
+        tuple[str, Hook]
+    ]  # Will be populated with executed hooks from transaction trace
 
 
 @dataclass
@@ -232,6 +252,8 @@ class OffchainSettlementData:
     valid_orders: set[HexBytes]
     jit_order_addresses: set[HexBytes]
     native_prices: dict[HexBytes, int]
+    # hooks data
+    order_hooks: dict[HexBytes, Hooks]  # Will be populated with hooks from appData
 
 
 @dataclass
