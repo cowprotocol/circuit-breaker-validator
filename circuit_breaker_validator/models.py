@@ -90,7 +90,6 @@ class OnchainTrade(Trade):
     limit_sell_amount: int
     limit_buy_amount: int
     kind: str
-    hooks: Hooks = None  # Will be populated with hooks from appData
 
     def volume(self) -> int:
         """Compute volume of a trade in the surplus token"""
@@ -232,9 +231,9 @@ class OnchainSettlementData:
     tx_hash: HexBytes
     solver: HexBytes
     trades: list[OnchainTrade]
-    executed_hooks: list[tuple[HexBytes, Hook]] = (
-        None  # Will be populated with executed hooks from transaction trace
-    )
+    executed_hooks: list[
+        tuple[str, Hook]
+    ]  # Will be populated with executed hooks from transaction trace
 
 
 @dataclass
@@ -254,9 +253,7 @@ class OffchainSettlementData:
     jit_order_addresses: set[HexBytes]
     native_prices: dict[HexBytes, int]
     # hooks data
-    order_hooks: dict[HexBytes, Hooks] = (
-        None  # Will be populated with hooks from appData
-    )
+    order_hooks: dict[HexBytes, Hooks]  # Will be populated with hooks from appData
 
 
 @dataclass
