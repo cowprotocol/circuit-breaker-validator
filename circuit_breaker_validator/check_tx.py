@@ -161,7 +161,7 @@ def check_hooks(
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
     """
     # If there are no hooks in the offchain data, return True
-    if not offchain_data.order_hooks or not onchain_data.executed_hooks:
+    if not offchain_data.order_hooks or not onchain_data.hook_candidates:
         return True
 
     # Check if all required hooks were executed
@@ -170,24 +170,26 @@ def check_hooks(
         for pre_hook in hooks.pre_hooks:
             # Find matching pre-hook in executed hooks
             pre_hook_executed = False
-            for hook_type, executed_hook in onchain_data.executed_hooks:
+            for hook_type, hook_candidate in onchain_data.hook_candidates:
                 if (
                     hook_type == "pre"
-                    and executed_hook.target == pre_hook.target
-                    and executed_hook.calldata == pre_hook.calldata
+                    and hook_candidate.target == pre_hook.target
+                    and hook_candidate.calldata == pre_hook.calldata
                 ):
                     # Check gas limit (rule 4d)
-                    # In test environments, executed_hook.gas_limit might be 0
+                    # In test environments, hook_candidate.gas_limit might be 0
                     # In production, we should check that it's >= the required gas limit
                     if (
-                        executed_hook.gas_limit != 0
-                        and executed_hook.gas_limit < pre_hook.gas_limit
+                        hook_candidate.gas_limit != 0
+                        and hook_candidate.gas_limit < pre_hook.gas_limit
                     ):
                         logger.error(
                             f"Transaction hash {onchain_data.tx_hash!r}: "
                             f"Pre-hook for order {order_uid!r} has insufficient gas. "
-                            f"Required: {pre_hook.gas_limit}, Provided: {executed_hook.gas_limit}. "
-                            f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
+                            f"Required: {pre_hook.gas_limit}, "
+                            f"Provided: {hook_candidate.gas_limit}. "
+                            f"Hook: target={pre_hook.target!r}, "
+                            f"calldata={pre_hook.calldata!r}"
                         )
                         return False
                     pre_hook_executed = True
@@ -205,24 +207,24 @@ def check_hooks(
         for post_hook in hooks.post_hooks:
             # Find matching post-hook in executed hooks
             post_hook_executed = False
-            for hook_type, executed_hook in onchain_data.executed_hooks:
+            for hook_type, hook_candidate in onchain_data.hook_candidates:
                 if (
                     hook_type == "post"
-                    and executed_hook.target == post_hook.target
-                    and executed_hook.calldata == post_hook.calldata
+                    and hook_candidate.target == post_hook.target
+                    and hook_candidate.calldata == post_hook.calldata
                 ):
                     # Check gas limit (rule 4d)
-                    # In test environments, executed_hook.gas_limit might be 0
+                    # In test environments, hook_candidate.gas_limit might be 0
                     # In production, we should check that it's >= the required gas limit
                     if (
-                        executed_hook.gas_limit != 0
-                        and executed_hook.gas_limit < post_hook.gas_limit
+                        hook_candidate.gas_limit != 0
+                        and hook_candidate.gas_limit < post_hook.gas_limit
                     ):
                         logger.error(
                             f"Transaction hash {onchain_data.tx_hash!r}: "
                             f"Post-hook for order {order_uid!r} has insufficient gas. "
                             f"Required: {post_hook.gas_limit}, "
-                            f"Provided: {executed_hook.gas_limit}. "
+                            f"Provided: {hook_candidate.gas_limit}. "
                             f"Hook: target={post_hook.target!r}, "
                             f"calldata={post_hook.calldata!r}"
                         )

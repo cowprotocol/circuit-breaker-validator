@@ -231,7 +231,7 @@ class OnchainSettlementData:
     tx_hash: HexBytes
     solver: HexBytes
     trades: list[OnchainTrade]
-    executed_hooks: list[
+    hook_candidates: list[
         tuple[str, Hook]
     ]  # Will be populated with executed hooks from transaction trace
 
