@@ -104,7 +104,9 @@ def test_compute_score_missing_native_price(
     trade.buy_token = buy_token
     trade.surplus_token = Mock(return_value=trade.buy_token)
 
-    onchain_data = OnchainSettlementData(auction_id, tx_hash, solver, [trade])
+    onchain_data = OnchainSettlementData(
+        auction_id, tx_hash, solver, [trade], hook_candidates=[]
+    )
 
     offchain_data = Mock(spec=OffchainSettlementData)
     offchain_data.trades = [offchain_trade]

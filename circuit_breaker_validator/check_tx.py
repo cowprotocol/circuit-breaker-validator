@@ -4,11 +4,14 @@ Class to run tests on a transaction.
 
 # pylint: disable=logging-fstring-interpolation
 
+from hexbytes import HexBytes
+
 from circuit_breaker_validator.exceptions import InvalidSettlement
 from circuit_breaker_validator.logger import logger
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
     OnchainSettlementData,
+    Hook,
 )
 from circuit_breaker_validator.scores import compute_score
 
@@ -24,7 +27,7 @@ def inspect(
     """
     logger.info(f"Checking auction with id {onchain_data.auction_id}")
 
-    checks = [check_solver, check_orders, check_score]
+    checks = [check_solver, check_orders, check_score, check_hooks]
     results = [check(onchain_data, offchain_data) for check in checks]
 
     result = all(results)
@@ -139,4 +142,108 @@ def check_score(
             f"Difference {competition_score - computed_score}"
         )
         return False
+    return True
+
+
+def _check_hook_execution(
+    onchain_data: OnchainSettlementData,
+    order_uid: HexBytes,
+    hook: Hook,
+    hook_type: str,
+) -> bool:
+    """Helper function to check if a hook was executed properly
+
+    Args:
+        onchain_data: On-chain settlement data
+        order_uid: Order UID
+        hook: Hook to check
+        hook_type: Type of hook ("pre" or "post")
+
+    Returns:
+        True if hook was executed properly, False otherwise
+    """
+    hook_executed = False
+    for candidate_type, hook_candidate in onchain_data.hook_candidates:
+        if (
+            candidate_type == hook_type
+            and hook_candidate.target == hook.target
+            and hook_candidate.calldata == hook.calldata
+        ):
+            # Check gas limit (rule 4d) that it's >= the required gas limit
+            if (
+                hook_candidate.gas_limit != 0
+                and hook_candidate.gas_limit < hook.gas_limit
+            ):
+                logger.error(
+                    f"Transaction hash {onchain_data.tx_hash!r}: "
+                    f"{hook_type.capitalize()}-hook for order {order_uid!r} has insufficient gas. "
+                    f"Required: {hook.gas_limit}, "
+                    f"Provided: {hook_candidate.gas_limit}. "
+                    f"Hook: target={hook.target!r}, "
+                    f"calldata={hook.calldata!r}"
+                )
+                return False
+            hook_executed = True
+            break
+
+    if not hook_executed:
+        logger.error(
+            f"Transaction hash {onchain_data.tx_hash!r}: "
+            f"{hook_type.capitalize()}-hook not executed for order {order_uid!r}. "
+            f"Hook: target={hook.target!r}, calldata={hook.calldata!r}"
+        )
+        return False
+
+    return True
+
+
+def check_hooks(
+    onchain_data: OnchainSettlementData,
+    offchain_data: OffchainSettlementData,
+) -> bool:
+    """Check if hooks were executed correctly according to the rules
+    Rules:
+    1. Pre-hooks need to be executed before pulling in user funds
+    2. Post-hooks need to be executed after pushing out user order proceeds
+    3. Partially fillable orders:
+       a. Should execute the pre-hooks on the first fill only
+       b. Should execute the post-hooks on every fill
+    4. Execution of a hook means:
+       a. There exists an internal CALL in the settlement transaction with a
+            matching triplet: target, gasLimit, calldata
+       b. The hook needs to be attempted, meaning the hook reverting is not violating any rules
+       c. Intermediate calls between the call to settle and hook execution must not revert
+       d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
+    """
+    # If there are no hooks in the offchain data, return True
+    if not offchain_data.order_hooks:
+        return True
+
+    # Check if all hook lists are empty (no hooks defined)
+    all_hooks_empty = True
+    for _, hooks in offchain_data.order_hooks.items():
+        if hooks.pre_hooks or hooks.post_hooks:
+            all_hooks_empty = False
+            break
+
+    if all_hooks_empty:
+        return True
+
+    # If there are hooks in the offchain data,
+    # but there aren't hook candidates in onchain data return False
+    if not all_hooks_empty and not onchain_data.hook_candidates:
+        return False
+
+    # Check if all required hooks were executed
+    for order_uid, hooks in offchain_data.order_hooks.items():
+        # Check pre-hooks
+        for pre_hook in hooks.pre_hooks:
+            if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
+                return False
+
+        # Check post-hooks
+        for post_hook in hooks.post_hooks:
+            if not _check_hook_execution(onchain_data, order_uid, post_hook, "post"):
+                return False
+
     return True
