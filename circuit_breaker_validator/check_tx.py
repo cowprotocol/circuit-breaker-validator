@@ -5,7 +5,6 @@ Class to run tests on a transaction.
 # pylint: disable=logging-fstring-interpolation
 
 from hexbytes import HexBytes
-from mypyc.ir.ops import Return
 
 from circuit_breaker_validator.exceptions import InvalidSettlement
 from circuit_breaker_validator.logger import logger
@@ -219,18 +218,19 @@ def check_hooks(
     # If there are no hooks in the offchain data, return True
     if not offchain_data.order_hooks:
         return True
-        
+
     # Check if all hook lists are empty (no hooks defined)
     all_hooks_empty = True
     for _, hooks in offchain_data.order_hooks.items():
         if hooks.pre_hooks or hooks.post_hooks:
             all_hooks_empty = False
             break
-    
+
     if all_hooks_empty:
         return True
 
-    # If there are hooks in the offchain data, but there aren't hook candidates in onchain data return False
+    # If there are hooks in the offchain data,
+    # but there aren't hook candidates in onchain data return False
     if not all_hooks_empty and not onchain_data.hook_candidates:
         return False
 
