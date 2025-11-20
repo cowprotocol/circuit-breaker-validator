@@ -233,7 +233,7 @@ class OnchainSettlementData:
     trades: list[OnchainTrade]
     hook_candidates: list[
         tuple[str, Hook]
-    ]  # Will be populated with executed hooks from transaction trace
+    ]  # Contains candidates for hooks from transaction trace
 
 
 @dataclass
@@ -253,7 +253,7 @@ class OffchainSettlementData:
     jit_order_addresses: set[HexBytes]
     native_prices: dict[HexBytes, int]
     # hooks data
-    order_hooks: dict[HexBytes, Hooks]  # Will be populated with hooks from appData
+    order_hooks: dict[HexBytes, Hooks]  # Contains hooks from appData of executed trades
 
 
 @dataclass
