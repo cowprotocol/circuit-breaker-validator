@@ -222,6 +222,8 @@ class FeePolicy(ABC):
 class OffchainTrade(Trade):
     """Class to describe offchain info about a trade."""
 
+    executed: int = 0  # 0 means it's the first fill, any other value means it's not
+
 
 @dataclass
 class OnchainSettlementData:

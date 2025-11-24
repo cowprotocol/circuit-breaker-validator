@@ -11,7 +11,9 @@ from circuit_breaker_validator.logger import logger
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
     OnchainSettlementData,
+    OffchainTrade,
     Hook,
+    Hooks,
 )
 from circuit_breaker_validator.scores import compute_score
 
@@ -197,6 +199,84 @@ def _check_hook_execution(
     return True
 
 
+def _has_hooks(offchain_data: OffchainSettlementData) -> bool:
+    """Check if there are any hooks defined in the offchain data.
+    
+    Args:
+        offchain_data: Off-chain settlement data
+        
+    Returns:
+        True if there are hooks defined, False otherwise
+    """
+    # If there are no order_hooks, return False
+    if not offchain_data.order_hooks:
+        return False
+    
+    # Check if any order has hooks defined
+    for _, hooks in offchain_data.order_hooks.items():
+        if hooks.pre_hooks or hooks.post_hooks:
+            return True
+    
+    # No hooks found
+    return False
+
+
+def _find_offchain_trade(
+    offchain_data: OffchainSettlementData, order_uid: HexBytes
+) -> OffchainTrade | None:
+    """Find the corresponding offchain trade for an order UID.
+
+    Args:
+        offchain_data: Off-chain settlement data
+        order_uid: Order UID to find
+
+    Returns:
+        The corresponding offchain trade, or None if not found
+    """
+    for trade in offchain_data.trades:
+        if trade.order_uid == order_uid:
+            return trade
+    return None
+
+
+def _check_order_hooks(
+    onchain_data: OnchainSettlementData,
+    offchain_data: OffchainSettlementData,
+    order_uid: HexBytes,
+    hooks: Hooks,
+) -> bool:
+    """Check hooks for a specific order.
+
+    Args:
+        onchain_data: On-chain settlement data
+        offchain_data: Off-chain settlement data
+        order_uid: Order UID
+        hooks: Hooks for the order
+
+    Returns:
+        True if all required hooks were executed properly, False otherwise
+    """
+    # Find the corresponding offchain trade to check its executed field
+    offchain_trade = _find_offchain_trade(offchain_data, order_uid)
+
+    # For pre-hooks, we need to check if this is the first fill (executed = 0)
+    # Pre-hooks should only be executed on the first fill
+    should_check_pre_hooks = offchain_trade is None or offchain_trade.executed == 0
+
+    # Check pre-hooks (only for the first fill)
+    if should_check_pre_hooks:
+        for pre_hook in hooks.pre_hooks:
+            if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
+                return False
+
+    # Check post-hooks (always required, even for partially filled orders)
+    for post_hook in hooks.post_hooks:
+        if not _check_hook_execution(onchain_data, order_uid, post_hook, "post"):
+            return False
+
+    return True
+
+
 def check_hooks(
     onchain_data: OnchainSettlementData,
     offchain_data: OffchainSettlementData,
@@ -215,35 +295,21 @@ def check_hooks(
        c. Intermediate calls between the call to settle and hook execution must not revert
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
     """
-    # If there are no hooks in the offchain data, return True
-    if not offchain_data.order_hooks:
-        return True
+    # Check if there are any hooks defined
+    has_hooks = _has_hooks(offchain_data)
 
-    # Check if all hook lists are empty (no hooks defined)
-    all_hooks_empty = True
-    for _, hooks in offchain_data.order_hooks.items():
-        if hooks.pre_hooks or hooks.post_hooks:
-            all_hooks_empty = False
-            break
-
-    if all_hooks_empty:
+    # If no hooks are defined, return True
+    if not has_hooks:
         return True
 
     # If there are hooks in the offchain data,
     # but there aren't hook candidates in onchain data return False
-    if not all_hooks_empty and not onchain_data.hook_candidates:
+    if not onchain_data.hook_candidates:
         return False
 
-    # Check if all required hooks were executed
+    # Check hooks for each order
     for order_uid, hooks in offchain_data.order_hooks.items():
-        # Check pre-hooks
-        for pre_hook in hooks.pre_hooks:
-            if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
-                return False
-
-        # Check post-hooks
-        for post_hook in hooks.post_hooks:
-            if not _check_hook_execution(onchain_data, order_uid, post_hook, "post"):
-                return False
+        if not _check_order_hooks(onchain_data, offchain_data, order_uid, hooks):
+            return False
 
     return True
