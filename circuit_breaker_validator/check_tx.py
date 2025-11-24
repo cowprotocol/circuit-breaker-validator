@@ -201,22 +201,22 @@ def _check_hook_execution(
 
 def _has_hooks(offchain_data: OffchainSettlementData) -> bool:
     """Check if there are any hooks defined in the offchain data.
-    
+
     Args:
         offchain_data: Off-chain settlement data
-        
+
     Returns:
         True if there are hooks defined, False otherwise
     """
     # If there are no order_hooks, return False
     if not offchain_data.order_hooks:
         return False
-    
+
     # Check if any order has hooks defined
     for _, hooks in offchain_data.order_hooks.items():
         if hooks.pre_hooks or hooks.post_hooks:
             return True
-    
+
     # No hooks found
     return False
 
