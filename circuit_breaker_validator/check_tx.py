@@ -261,10 +261,15 @@ def _check_order_hooks(
 
     # For pre-hooks, we need to check if this is the first fill (executed = 0)
     # Pre-hooks should only be executed on the first fill
-    should_check_pre_hooks = offchain_trade is None or offchain_trade.executed == 0
+    is_first_fill = offchain_trade is None or offchain_trade.executed == 0
+
+    # If there are hooks in the offchain data and its the first fill,
+    # but there aren't hook candidates in onchain data return False
+    if not onchain_data.hook_candidates and is_first_fill:
+        return False
 
     # Check pre-hooks (only for the first fill)
-    if should_check_pre_hooks:
+    if is_first_fill:
         for pre_hook in hooks.pre_hooks:
             if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
                 return False
@@ -301,11 +306,6 @@ def check_hooks(
     # If no hooks are defined, return True
     if not has_hooks:
         return True
-
-    # If there are hooks in the offchain data,
-    # but there aren't hook candidates in onchain data return False
-    if not onchain_data.hook_candidates:
-        return False
 
     # Check hooks for each order
     for order_uid, hooks in offchain_data.order_hooks.items():
