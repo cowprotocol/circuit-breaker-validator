@@ -9,11 +9,14 @@ from circuit_breaker_validator.models import (
     OffchainSettlementData,
     OnchainTrade,
     OffchainTrade,
+    Hook,
+    Hooks,
 )
 from circuit_breaker_validator.check_tx import (
     check_solver,
     check_orders,
     check_score,
+    check_hooks,
     SCORE_CHECK_THRESHOLD,
 )
 
@@ -485,3 +488,304 @@ def test_check_score(difference, expected_result):
         return_value=10**18 + difference,
     ):
         assert check_score(onchain_data, offchain_data) == expected_result
+
+
+@pytest.mark.parametrize(
+    "scenario,expected_result",
+    [
+        # No hooks defined - should pass
+        ("no_hooks", True),
+        # All hooks executed correctly - should pass
+        ("all_hooks_executed", True),
+        # Missing pre-hook - should fail
+        ("missing_pre_hook", False),
+        # Missing post-hook - should fail
+        ("missing_post_hook", False),
+        # Insufficient gas limit - should fail
+        ("insufficient_gas", False),
+        # First fill with pre-hooks - should pass
+        ("first_fill_with_pre_hooks", True),
+        # Subsequent fill without pre-hooks - should pass
+        ("subsequent_fill_no_pre_hooks", True),
+        # Subsequent fill with pre-hooks incorrectly - should fail
+        ("subsequent_fill_with_pre_hooks", False),
+        # Multiple hooks executed correctly - should pass
+        ("multiple_hooks", True),
+    ],
+)
+def test_check_hooks(scenario, expected_result):
+    """Test that check_hooks returns the expected result based on the scenario"""
+    tx_hash = HexBytes("0x00")
+    order_uid = HexBytes("0x01")
+
+    # Create base hooks for testing
+    pre_hook = Hook(
+        target=HexBytes("0xC01De8aB58f29E4d9fa9e274eC7c05a04e397312"),
+        calldata=HexBytes("0xc2985578"),
+        gas_limit=1030000,
+    )
+    post_hook = Hook(
+        target=HexBytes("0xD02De8aB58f29E4d9fa9e274eC7c05a04e397313"),
+        calldata=HexBytes("0xd3985579"),
+        gas_limit=2040000,
+    )
+
+    if scenario == "no_hooks":
+        # No hooks defined in offchain data
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(pre_hooks=[], post_hooks=[])
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {}
+
+    elif scenario == "all_hooks_executed":
+        # All hooks executed correctly
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=0,  # Executed hooks have gas_limit 0 or >= required
+        )
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "missing_pre_hook":
+        # Pre-hook is missing in executed hooks
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[],  # Missing pre-hook
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "missing_post_hook":
+        # Post-hook is missing in executed hooks
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],
+            post_hooks=[],  # Missing post-hook
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "insufficient_gas":
+        # Executed hook has insufficient gas limit
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=1000,  # Less than required 1030000
+        )
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "first_fill_with_pre_hooks":
+        # First fill - pre-hooks should be executed
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=0,
+        )
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "subsequent_fill_no_pre_hooks":
+        # Subsequent fill - pre-hooks should NOT be executed
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[],  # No pre-hooks for subsequent fill
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 1000  # Subsequent fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "subsequent_fill_with_pre_hooks":
+        # Subsequent fill - pre-hooks should NOT be executed, but they are
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=0,
+        )
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],  # Pre-hooks incorrectly executed
+            post_hooks=[executed_post_hook],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 1000  # Subsequent fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook])
+        }
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "multiple_hooks":
+        # Multiple hooks executed correctly
+        pre_hook_2 = Hook(
+            target=HexBytes("0xC02De8aB58f29E4d9fa9e274eC7c05a04e397313"),
+            calldata=HexBytes("0xc3985579"),
+            gas_limit=1040000,
+        )
+        post_hook_2 = Hook(
+            target=HexBytes("0xD03De8aB58f29E4d9fa9e274eC7c05a04e397314"),
+            calldata=HexBytes("0xd4985580"),
+            gas_limit=2050000,
+        )
+
+        executed_pre_hook_1 = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=0,
+        )
+        executed_pre_hook_2 = Hook(
+            target=pre_hook_2.target,
+            calldata=pre_hook_2.calldata,
+            gas_limit=0,
+        )
+        executed_post_hook_1 = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=0,
+        )
+        executed_post_hook_2 = Hook(
+            target=post_hook_2.target,
+            calldata=post_hook_2.calldata,
+            gas_limit=0,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook_1, executed_pre_hook_2],
+            post_hooks=[executed_post_hook_1, executed_post_hook_2],
+        )
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(
+                pre_hooks=[pre_hook, pre_hook_2],
+                post_hooks=[post_hook, post_hook_2],
+            )
+        }
+        offchain_data.trades = [offchain_trade]
+
+    assert check_hooks(onchain_data, offchain_data) == expected_result
