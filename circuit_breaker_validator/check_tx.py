@@ -164,11 +164,16 @@ def _check_hook_execution(
     Returns:
         True if hook was executed properly, False otherwise
     """
+    # Select the appropriate list of candidates based on hook_type
+    if hook_type == "pre":
+        candidates = onchain_data.hook_candidates.pre_hooks
+    else:  # hook_type == "post"
+        candidates = onchain_data.hook_candidates.post_hooks
+
     hook_executed = False
-    for candidate_type, hook_candidate in onchain_data.hook_candidates:
+    for hook_candidate in candidates:
         if (
-            candidate_type == hook_type
-            and hook_candidate.target == hook.target
+            hook_candidate.target == hook.target
             and hook_candidate.calldata == hook.calldata
         ):
             # Check gas limit (rule 4d) that it's >= the required gas limit
@@ -223,7 +228,7 @@ def _has_hooks(offchain_data: OffchainSettlementData) -> bool:
 
 def _find_offchain_trade(
     offchain_data: OffchainSettlementData, order_uid: HexBytes
-) -> OffchainTrade | None:
+) -> OffchainTrade:
     """Find the corresponding offchain trade for an order UID.
 
     Args:
@@ -231,12 +236,12 @@ def _find_offchain_trade(
         order_uid: Order UID to find
 
     Returns:
-        The corresponding offchain trade, or None if not found
+        The corresponding offchain trade, or raises ValueError if not found
     """
     for trade in offchain_data.trades:
         if trade.order_uid == order_uid:
             return trade
-    return None
+    raise ValueError(f"Order UID {order_uid!r} not found in offchain trades")
 
 
 def _check_order_hooks(
@@ -261,11 +266,15 @@ def _check_order_hooks(
 
     # For pre-hooks, we need to check if this is the first fill (executed = 0)
     # Pre-hooks should only be executed on the first fill
-    is_first_fill = offchain_trade is None or offchain_trade.executed == 0
+    is_first_fill = offchain_trade.already_executed_amount == 0
 
     # If there are hooks in the offchain data and its the first fill,
     # but there aren't hook candidates in onchain data return False
-    if not onchain_data.hook_candidates and is_first_fill:
+    has_no_hook_candidates = (
+        not onchain_data.hook_candidates.pre_hooks
+        and not onchain_data.hook_candidates.post_hooks
+    )
+    if has_no_hook_candidates and is_first_fill:
         return False
 
     # Check pre-hooks (only for the first fill)
@@ -273,6 +282,24 @@ def _check_order_hooks(
         for pre_hook in hooks.pre_hooks:
             if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
                 return False
+    else:
+        # For subsequent fills, ensure pre-hooks are NOT executed
+        if hooks.pre_hooks and onchain_data.hook_candidates.pre_hooks:
+            # Check if any of the required pre-hooks are present in the executed hooks
+            for pre_hook in hooks.pre_hooks:
+                for executed_hook in onchain_data.hook_candidates.pre_hooks:
+                    if (
+                        executed_hook.target == pre_hook.target
+                        and executed_hook.calldata == pre_hook.calldata
+                    ):
+                        logger.error(
+                            f"Transaction hash {onchain_data.tx_hash!r}: "
+                            f"Pre-hook incorrectly executed for "
+                            f"subsequent fill of order {order_uid!r}. "
+                            f"Pre-hooks should only be executed on first fill. "
+                            f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
+                        )
+                        return False
 
     # Check post-hooks (always required, even for partially filled orders)
     for post_hook in hooks.post_hooks:
@@ -286,19 +313,54 @@ def check_hooks(
     onchain_data: OnchainSettlementData,
     offchain_data: OffchainSettlementData,
 ) -> bool:
-    """Check if hooks were executed correctly according to the rules
-    Rules:
+    """Check if hooks were executed correctly according to the rules.
+
+    Hook Validation Rules:
     1. Pre-hooks need to be executed before pulling in user funds
+       - Guaranteed by: OnchainSettlementData.hook_candidates being populated with pre-hooks
+         appearing before trade executions in the transaction trace
+       - Not explicitly checked in this function
+
     2. Post-hooks need to be executed after pushing out user order proceeds
+       - Guaranteed by: OnchainSettlementData.hook_candidates being populated with post-hooks
+         appearing after trade executions in the transaction trace
+       - Not explicitly checked in this function
+
     3. Partially fillable orders:
        a. Should execute the pre-hooks on the first fill only
+          - Explicitly checked: Validated by checking
+          offchain_trade.already_executed_amount == 0 (lines 264, 272-275)
        b. Should execute the post-hooks on every fill
+          - Explicitly checked: Post-hooks are always
+          validated regardless of fill status (lines 277-280)
+
     4. Execution of a hook means:
-       a. There exists an internal CALL in the settlement transaction with a
-            matching triplet: target, gasLimit, calldata
+       a. There exists an internal CALL in the settlement transaction with a matching triplet:
+          target, gasLimit, calldata
+          - Partially checked: target and calldata are checked for exact match (lines 170-173)
+          - Gas limit is validated as >= required, with 0 meaning unlimited (lines 176-187)
+
        b. The hook needs to be attempted, meaning the hook reverting is not violating any rules
+          - NOT IMPLEMENTED: This requires transaction trace analysis to determine if the hook
+            was attempted. Future implementation may require extending Hook data structure with
+            an 'attempted' attribute.
+
        c. Intermediate calls between the call to settle and hook execution must not revert
+          - NOT IMPLEMENTED: This requires transaction trace analysis to track call stack state.
+            Future implementation may require extending Hook data structure with an attribute
+            like 'no_upstream_revert' to indicate this
+            validation was performed during data fetching.
+
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
+          - Explicitly checked: Validated that gas_limit
+          (if non-zero) is >= required (lines 176-187)
+
+    Args:
+        onchain_data: On-chain settlement data containing hook_candidates from transaction trace
+        offchain_data: Off-chain settlement data containing expected hooks from order appData
+
+    Returns:
+        True if all required hooks were found and validated successfully, False otherwise
     """
     # Check if there are any hooks defined
     has_hooks = _has_hooks(offchain_data)

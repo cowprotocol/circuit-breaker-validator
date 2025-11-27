@@ -54,7 +54,11 @@ class Quote:
 
 @dataclass
 class Hook:
-    """Class to describe a hook"""
+    """Class to describe a hook.
+
+    A hook represents a contract call that should be executed as part of an order settlement.
+    This class contains the essential information needed to identify and validate hook execution.
+    """
 
     target: HexBytes
     calldata: HexBytes
@@ -222,20 +226,36 @@ class FeePolicy(ABC):
 class OffchainTrade(Trade):
     """Class to describe offchain info about a trade."""
 
-    executed: int = 0  # 0 means it's the first fill, any other value means it's not
+    already_executed_amount: int = (
+        0  # 0 means it's the first fill, any other value means it's not
+    )
 
 
 @dataclass
 class OnchainSettlementData:
-    """Class to describe onchain info about a settlement."""
+    """Class to describe onchain info about a settlement.
+
+    Attributes:
+        auction_id: Unique identifier for the auction
+        tx_hash: Transaction hash of the settlement
+        solver: Address of the solver that submitted the settlement
+        trades: List of trades executed in this settlement
+        hook_candidates: Hooks structure containing pre-hooks and post-hooks extracted from
+            transaction trace. This is populated during data fetching and provides the following
+            guarantees:
+            - Pre-hooks appear before the corresponding trade execution in the transaction trace,
+              ensuring Rule 1 (pre-hooks execute before pulling user funds)
+            - Post-hooks appear after the corresponding trade execution in the transaction trace,
+              ensuring Rule 2 (post-hooks execute after pushing proceeds)
+            - The ordering in each list reflects the actual execution order in the transaction
+            - Each Hook contains the target address, calldata, and gas_limit from the actual call
+    """
 
     auction_id: int
     tx_hash: HexBytes
     solver: HexBytes
     trades: list[OnchainTrade]
-    hook_candidates: list[
-        tuple[str, Hook]
-    ]  # Contains candidates for hooks from transaction trace
+    hook_candidates: Hooks  # Contains candidates for hooks from transaction trace
 
 
 @dataclass
@@ -254,7 +274,6 @@ class OffchainSettlementData:
     valid_orders: set[HexBytes]
     jit_order_addresses: set[HexBytes]
     native_prices: dict[HexBytes, int]
-    # hooks data
     order_hooks: dict[HexBytes, Hooks]  # Contains hooks from appData of executed trades
 
 

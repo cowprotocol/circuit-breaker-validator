@@ -10,6 +10,7 @@ from circuit_breaker_validator.models import (
     OffchainTrade,
     OnchainSettlementData,
     OffchainSettlementData,
+    Hooks,
 )
 from circuit_breaker_validator.scores import compute_score
 
@@ -105,7 +106,11 @@ def test_compute_score_missing_native_price(
     trade.surplus_token = Mock(return_value=trade.buy_token)
 
     onchain_data = OnchainSettlementData(
-        auction_id, tx_hash, solver, [trade], hook_candidates=[]
+        auction_id,
+        tx_hash,
+        solver,
+        [trade],
+        hook_candidates=Hooks(pre_hooks=[], post_hooks=[]),
     )
 
     offchain_data = Mock(spec=OffchainSettlementData)
