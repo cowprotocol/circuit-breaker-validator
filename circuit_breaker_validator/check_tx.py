@@ -6,7 +6,10 @@ Class to run tests on a transaction.
 
 from hexbytes import HexBytes
 
-from circuit_breaker_validator.exceptions import InvalidSettlement
+from circuit_breaker_validator.exceptions import (
+    InvalidSettlement,
+    NoncriticalDataFetchingError,
+)
 from circuit_breaker_validator.logger import logger
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
@@ -175,21 +178,9 @@ def _check_hook_execution(
         if (
             hook_candidate.target == hook.target
             and hook_candidate.calldata == hook.calldata
+            and hook_candidate.gas_limit == hook.gas_limit
         ):
-            # Check gas limit (rule 4d) that it's >= the required gas limit
-            if (
-                hook_candidate.gas_limit != 0
-                and hook_candidate.gas_limit < hook.gas_limit
-            ):
-                logger.error(
-                    f"Transaction hash {onchain_data.tx_hash!r}: "
-                    f"{hook_type.capitalize()}-hook for order {order_uid!r} has insufficient gas. "
-                    f"Required: {hook.gas_limit}, "
-                    f"Provided: {hook_candidate.gas_limit}. "
-                    f"Hook: target={hook.target!r}, "
-                    f"calldata={hook.calldata!r}"
-                )
-                return False
+            # Check rules 4 b - d here
             hook_executed = True
             break
 
@@ -236,12 +227,15 @@ def _find_offchain_trade(
         order_uid: Order UID to find
 
     Returns:
-        The corresponding offchain trade, or raises ValueError if not found
+        The corresponding offchain trade,
+        or raises NoncriticalDataFetchingError if not found
     """
     for trade in offchain_data.trades:
         if trade.order_uid == order_uid:
             return trade
-    raise ValueError(f"Order UID {order_uid!r} not found in offchain trades")
+    raise NoncriticalDataFetchingError(
+        f"Order UID {order_uid!r} not found in offchain trades", recheck=True
+    )
 
 
 def _check_order_hooks(
@@ -282,24 +276,6 @@ def _check_order_hooks(
         for pre_hook in hooks.pre_hooks:
             if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
                 return False
-    else:
-        # For subsequent fills, ensure pre-hooks are NOT executed
-        if hooks.pre_hooks and onchain_data.hook_candidates.pre_hooks:
-            # Check if any of the required pre-hooks are present in the executed hooks
-            for pre_hook in hooks.pre_hooks:
-                for executed_hook in onchain_data.hook_candidates.pre_hooks:
-                    if (
-                        executed_hook.target == pre_hook.target
-                        and executed_hook.calldata == pre_hook.calldata
-                    ):
-                        logger.error(
-                            f"Transaction hash {onchain_data.tx_hash!r}: "
-                            f"Pre-hook incorrectly executed for "
-                            f"subsequent fill of order {order_uid!r}. "
-                            f"Pre-hooks should only be executed on first fill. "
-                            f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
-                        )
-                        return False
 
     # Check post-hooks (always required, even for partially filled orders)
     for post_hook in hooks.post_hooks:
@@ -337,8 +313,6 @@ def check_hooks(
     4. Execution of a hook means:
        a. There exists an internal CALL in the settlement transaction with a matching triplet:
           target, gasLimit, calldata
-          - Partially checked: target and calldata are checked for exact match (lines 170-173)
-          - Gas limit is validated as >= required, with 0 meaning unlimited (lines 176-187)
 
        b. The hook needs to be attempted, meaning the hook reverting is not violating any rules
           - NOT IMPLEMENTED: This requires transaction trace analysis to determine if the hook
@@ -352,8 +326,7 @@ def check_hooks(
             validation was performed during data fetching.
 
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
-          - Explicitly checked: Validated that gas_limit
-          (if non-zero) is >= required (lines 176-187)
+          - NOT IMPLEMENTED: Gas is validated as >= required, with 0 meaning unlimited
 
     Args:
         onchain_data: On-chain settlement data containing hook_candidates from transaction trace
@@ -369,7 +342,8 @@ def check_hooks(
     if not has_hooks:
         return True
 
-    # Check hooks for each order
+    # Check hooks for each order in order_hooks map that contains a prepped mapping from
+    # orderbook api of orders and the hooks that should be executed for them.
     for order_uid, hooks in offchain_data.order_hooks.items():
         if not _check_order_hooks(onchain_data, offchain_data, order_uid, hooks):
             return False

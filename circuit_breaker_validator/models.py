@@ -227,7 +227,7 @@ class OffchainTrade(Trade):
     """Class to describe offchain info about a trade."""
 
     already_executed_amount: int = (
-        0  # 0 means it's the first fill, any other value means it's not
+        0  # 0 means it's the first fill, any other value means it's not, default is for jit orders
     )
 
 
