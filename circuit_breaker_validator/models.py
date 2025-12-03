@@ -226,9 +226,8 @@ class FeePolicy(ABC):
 class OffchainTrade(Trade):
     """Class to describe offchain info about a trade."""
 
-    already_executed_amount: int = (
-        0  # 0 means it's the first fill, any other value means it's not, default is for jit orders
-    )
+    # 0 means it's the first fill, any other value means it's not
+    already_executed_amount: int
 
 
 @dataclass
@@ -241,12 +240,7 @@ class OnchainSettlementData:
         solver: Address of the solver that submitted the settlement
         trades: List of trades executed in this settlement
         hook_candidates: Hooks structure containing pre-hooks and post-hooks extracted from
-            transaction trace. This is populated during data fetching and provides the following
-            guarantees:
-            - Pre-hooks appear before the corresponding trade execution in the transaction trace,
-              ensuring Rule 1 (pre-hooks execute before pulling user funds)
-            - Post-hooks appear after the corresponding trade execution in the transaction trace,
-              ensuring Rule 2 (post-hooks execute after pushing proceeds)
+            transaction trace.
             - The ordering in each list reflects the actual execution order in the transaction
             - Each Hook contains the target address, calldata, and gas_limit from the actual call
     """
@@ -255,12 +249,28 @@ class OnchainSettlementData:
     tx_hash: HexBytes
     solver: HexBytes
     trades: list[OnchainTrade]
-    hook_candidates: Hooks  # Contains candidates for hooks from transaction trace
+    hook_candidates: Hooks
 
 
 @dataclass
 class OffchainSettlementData:
-    """Class to describe offchain info about a settlement."""
+    """Class to describe offchain info about a settlement.
+
+    Attributes:
+        auction_id: Unique identifier for the auction
+        solver: Address of the solver that submitted the settlement
+        trades: List of trades proposed in the settlement
+        score: The score of the settlement as reported in the competition
+        trade_fee_policies: Dict mapping order_uid to list of fee policies for that order.
+            May contain entries for orders not in this settlement without causing issues.
+        valid_orders: Set of order_uids that were valid in the auction
+        jit_order_addresses: Set of addresses that are JIT order owners
+        native_prices: Dict mapping token addresses to their native prices
+        order_hooks: Dict mapping order_uid to Hooks for that order.
+            May contain entries for orders not in this settlement without causing issues.
+            Hook validation iterates over trades and looks up hooks from this dict, so
+            extra entries are safely ignored.
+    """
 
     # pylint: disable=too-many-instance-attributes
 
@@ -274,7 +284,7 @@ class OffchainSettlementData:
     valid_orders: set[HexBytes]
     jit_order_addresses: set[HexBytes]
     native_prices: dict[HexBytes, int]
-    order_hooks: dict[HexBytes, Hooks]  # Contains hooks from appData of executed trades
+    order_hooks: dict[HexBytes, Hooks]
 
 
 @dataclass

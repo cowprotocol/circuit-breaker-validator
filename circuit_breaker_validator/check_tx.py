@@ -6,10 +6,7 @@ Class to run tests on a transaction.
 
 from hexbytes import HexBytes
 
-from circuit_breaker_validator.exceptions import (
-    InvalidSettlement,
-    NoncriticalDataFetchingError,
-)
+from circuit_breaker_validator.exceptions import InvalidSettlement
 from circuit_breaker_validator.logger import logger
 from circuit_breaker_validator.models import (
     OffchainSettlementData,
@@ -150,136 +147,83 @@ def check_score(
     return True
 
 
-def _check_hook_execution(
-    onchain_data: OnchainSettlementData,
-    order_uid: HexBytes,
-    hook: Hook,
-    hook_type: str,
-) -> bool:
+def _check_hook_execution(hook: Hook, hook_candidates: list[Hook]) -> bool:
     """Helper function to check if a hook was executed properly
 
     Args:
-        onchain_data: On-chain settlement data
-        order_uid: Order UID
         hook: Hook to check
-        hook_type: Type of hook ("pre" or "post")
+        hook_candidates: List of hook candidates from onchain execution
 
     Returns:
-        True if hook was executed properly, False otherwise
+        True if hook was found in candidates, False otherwise
     """
-    # Select the appropriate list of candidates based on hook_type
-    if hook_type == "pre":
-        candidates = onchain_data.hook_candidates.pre_hooks
-    else:  # hook_type == "post"
-        candidates = onchain_data.hook_candidates.post_hooks
-
-    hook_executed = False
-    for hook_candidate in candidates:
+    for hook_candidate in hook_candidates:
         if (
             hook_candidate.target == hook.target
             and hook_candidate.calldata == hook.calldata
             and hook_candidate.gas_limit == hook.gas_limit
         ):
-            # Check rules 4 b - d here
-            hook_executed = True
-            break
-
-    if not hook_executed:
-        logger.error(
-            f"Transaction hash {onchain_data.tx_hash!r}: "
-            f"{hook_type.capitalize()}-hook not executed for order {order_uid!r}. "
-            f"Hook: target={hook.target!r}, calldata={hook.calldata!r}"
-        )
-        return False
-
-    return True
-
-
-def _has_hooks(offchain_data: OffchainSettlementData) -> bool:
-    """Check if there are any hooks defined in the offchain data.
-
-    Args:
-        offchain_data: Off-chain settlement data
-
-    Returns:
-        True if there are hooks defined, False otherwise
-    """
-    # If there are no order_hooks, return False
-    if not offchain_data.order_hooks:
-        return False
-
-    # Check if any order has hooks defined
-    for _, hooks in offchain_data.order_hooks.items():
-        if hooks.pre_hooks or hooks.post_hooks:
             return True
-
-    # No hooks found
     return False
 
 
-def _find_offchain_trade(
-    offchain_data: OffchainSettlementData, order_uid: HexBytes
-) -> OffchainTrade:
-    """Find the corresponding offchain trade for an order UID.
-
-    Args:
-        offchain_data: Off-chain settlement data
-        order_uid: Order UID to find
-
-    Returns:
-        The corresponding offchain trade,
-        or raises NoncriticalDataFetchingError if not found
-    """
-    for trade in offchain_data.trades:
-        if trade.order_uid == order_uid:
-            return trade
-    raise NoncriticalDataFetchingError(
-        f"Order UID {order_uid!r} not found in offchain trades", recheck=True
-    )
-
-
 def _check_order_hooks(
-    onchain_data: OnchainSettlementData,
-    offchain_data: OffchainSettlementData,
-    order_uid: HexBytes,
+    tx_hash: HexBytes,
+    trade: OffchainTrade,
     hooks: Hooks,
+    hook_candidates: Hooks,
 ) -> bool:
-    """Check hooks for a specific order.
+    """Check hooks for a specific trade.
 
     Args:
-        onchain_data: On-chain settlement data
-        offchain_data: Off-chain settlement data
-        order_uid: Order UID
-        hooks: Hooks for the order
+        tx_hash: Transaction hash for logging
+        trade: The trade to check hooks for
+        hooks: Expected hooks for the trade
+        hook_candidates: Hook candidates extracted from onchain execution
 
     Returns:
         True if all required hooks were executed properly, False otherwise
     """
-    # Find the corresponding offchain trade to check its executed field
-    offchain_trade = _find_offchain_trade(offchain_data, order_uid)
+    # If there are no hooks defined for this trade, validation passes
+    if not hooks.pre_hooks and not hooks.post_hooks:
+        return True
 
-    # For pre-hooks, we need to check if this is the first fill (executed = 0)
+    # For pre-hooks, we need to check if this is the first fill
     # Pre-hooks should only be executed on the first fill
-    is_first_fill = offchain_trade.already_executed_amount == 0
+    is_first_fill = trade.already_executed_amount == 0
 
-    # If there are hooks in the offchain data and its the first fill,
-    # but there aren't hook candidates in onchain data return False
+    # If there are hooks in the offchain data and it's the first fill,
+    # but there aren't hook candidates in onchain data, return False
     has_no_hook_candidates = (
-        not onchain_data.hook_candidates.pre_hooks
-        and not onchain_data.hook_candidates.post_hooks
+        not hook_candidates.pre_hooks and not hook_candidates.post_hooks
     )
     if has_no_hook_candidates and is_first_fill:
+        logger.error(
+            f"Transaction hash {tx_hash!r}: "
+            f"Hooks defined for order {trade.order_uid!r} "
+            f"but no hook candidates found in transaction"
+        )
         return False
 
     # Check pre-hooks (only for the first fill)
     if is_first_fill:
         for pre_hook in hooks.pre_hooks:
-            if not _check_hook_execution(onchain_data, order_uid, pre_hook, "pre"):
+            if not _check_hook_execution(pre_hook, hook_candidates.pre_hooks):
+                logger.error(
+                    f"Transaction hash {tx_hash!r}: "
+                    f"Pre-hook not executed for order {trade.order_uid!r}. "
+                    f"Hook: target={pre_hook.target!r}, calldata={pre_hook.calldata!r}"
+                )
                 return False
 
     # Check post-hooks (always required, even for partially filled orders)
     for post_hook in hooks.post_hooks:
-        if not _check_hook_execution(onchain_data, order_uid, post_hook, "post"):
+        if not _check_hook_execution(post_hook, hook_candidates.post_hooks):
+            logger.error(
+                f"Transaction hash {tx_hash!r}: "
+                f"Post-hook not executed for order {trade.order_uid!r}. "
+                f"Hook: target={post_hook.target!r}, calldata={post_hook.calldata!r}"
+            )
             return False
 
     return True
@@ -304,11 +248,9 @@ def check_hooks(
 
     3. Partially fillable orders:
        a. Should execute the pre-hooks on the first fill only
-          - Explicitly checked: Validated by checking
-          offchain_trade.already_executed_amount == 0 (lines 264, 272-275)
+          - Explicitly checked: Validated by checking offchain_trade.already_executed_amount == 0
        b. Should execute the post-hooks on every fill
-          - Explicitly checked: Post-hooks are always
-          validated regardless of fill status (lines 277-280)
+          - Explicitly checked: Post-hooks are always validated regardless of fill status
 
     4. Execution of a hook means:
        a. There exists an internal CALL in the settlement transaction with a matching triplet:
@@ -322,8 +264,7 @@ def check_hooks(
        c. Intermediate calls between the call to settle and hook execution must not revert
           - NOT IMPLEMENTED: This requires transaction trace analysis to track call stack state.
             Future implementation may require extending Hook data structure with an attribute
-            like 'no_upstream_revert' to indicate this
-            validation was performed during data fetching.
+            like 'no_upstream_revert' to indicate this validation was performed during fetching.
 
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
           - NOT IMPLEMENTED: Gas is validated as >= required, with 0 meaning unlimited
@@ -335,17 +276,20 @@ def check_hooks(
     Returns:
         True if all required hooks were found and validated successfully, False otherwise
     """
-    # Check if there are any hooks defined
-    has_hooks = _has_hooks(offchain_data)
-
-    # If no hooks are defined, return True
-    if not has_hooks:
+    # If there are no trades, the rule for hooks is automatically satisfied
+    if not offchain_data.trades:
         return True
 
-    # Check hooks for each order in order_hooks map that contains a prepped mapping from
-    # orderbook api of orders and the hooks that should be executed for them.
-    for order_uid, hooks in offchain_data.order_hooks.items():
-        if not _check_order_hooks(onchain_data, offchain_data, order_uid, hooks):
+    hook_candidates = onchain_data.hook_candidates
+
+    # Check hooks for each executed trade
+    for trade in offchain_data.trades:
+        # Get hooks for this trade, default to empty Hooks if not present
+        hooks = offchain_data.order_hooks.get(
+            trade.order_uid, Hooks(pre_hooks=[], post_hooks=[])
+        )
+
+        if not _check_order_hooks(onchain_data.tx_hash, trade, hooks, hook_candidates):
             return False
 
     return True

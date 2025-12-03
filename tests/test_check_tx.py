@@ -507,7 +507,8 @@ def test_check_score(difference, expected_result):
         ("first_fill_with_pre_hooks", True),
         # Subsequent fill without pre-hooks - should pass
         ("subsequent_fill_no_pre_hooks", True),
-        # Subsequent fill with pre-hooks incorrectly - current implementation doesn't validate this
+        # Subsequent fill with pre-hooks present (should ideally fail, but passes because
+        # current implementation doesn't validate that pre-hooks are absent on subsequent fills)
         ("subsequent_fill_with_pre_hooks", True),
         # Multiple hooks executed correctly - should pass
         ("multiple_hooks", True),
@@ -538,6 +539,7 @@ def test_check_hooks(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.order_hooks = {}
+        offchain_data.trades = []
 
     elif scenario == "all_hooks_executed":
         # All hooks executed correctly
@@ -705,7 +707,9 @@ def test_check_hooks(scenario, expected_result):
         offchain_data.trades = [offchain_trade]
 
     elif scenario == "subsequent_fill_with_pre_hooks":
-        # Subsequent fill - pre-hooks should NOT be executed, but they are
+        # Subsequent fill where pre-hooks are present in onchain execution
+        # In this case we skip pre-hook validation entirely because
+        # is_first_fill=False, so it only checks post-hooks and returns True
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
@@ -720,13 +724,13 @@ def test_check_hooks(scenario, expected_result):
         onchain_data = Mock(spec=OnchainSettlementData)
         onchain_data.tx_hash = tx_hash
         onchain_data.hook_candidates = Hooks(
-            pre_hooks=[executed_pre_hook],  # Pre-hooks incorrectly executed
+            pre_hooks=[executed_pre_hook],
             post_hooks=[executed_post_hook],
         )
 
         offchain_trade = Mock(spec=OffchainTrade)
         offchain_trade.order_uid = order_uid
-        offchain_trade.already_executed_amount = 1000  # Subsequent fill
+        offchain_trade.already_executed_amount = 1000
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.order_hooks = {
