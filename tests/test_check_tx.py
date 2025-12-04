@@ -501,17 +501,18 @@ def test_check_score(difference, expected_result):
         ("missing_pre_hook", False),
         # Missing post-hook - should fail
         ("missing_post_hook", False),
-        # Insufficient gas limit - should fail
-        ("insufficient_gas", False),
+        # Incorrect gas limit - should fail
+        ("incorrect_gas_limit", False),
         # First fill with pre-hooks - should pass
         ("first_fill_with_pre_hooks", True),
         # Subsequent fill without pre-hooks - should pass
         ("subsequent_fill_no_pre_hooks", True),
-        # Subsequent fill with pre-hooks present (should ideally fail, but passes because
-        # current implementation doesn't validate that pre-hooks are absent on subsequent fills)
+        # Subsequent fill with pre-hooks present - should pass
         ("subsequent_fill_with_pre_hooks", True),
         # Multiple hooks executed correctly - should pass
         ("multiple_hooks", True),
+        # Multiple orders with the same hook, executed only once - should pass
+        ("multiple_orders_same_hook_executed_once", True),
     ],
 )
 def test_check_hooks(scenario, expected_result):
@@ -621,12 +622,12 @@ def test_check_hooks(scenario, expected_result):
         }
         offchain_data.trades = [offchain_trade]
 
-    elif scenario == "insufficient_gas":
-        # Executed hook has insufficient gas limit
+    elif scenario == "incorrect_gas_limit":
+        # Executed hook has incorrect gas limit
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=1000,  # Less than required 1030000
+            gas_limit=1000,  # Different from the required 1030000
         )
         executed_post_hook = Hook(
             target=post_hook.target,
@@ -791,5 +792,45 @@ def test_check_hooks(scenario, expected_result):
             )
         }
         offchain_data.trades = [offchain_trade]
+
+    elif scenario == "multiple_orders_same_hook_executed_once":
+        # Multiple orders require the same hook, but it's only executed once onchain
+        # This should pass because we only check that the hook exists in candidates
+        order_uid_2 = HexBytes("0x02")
+
+        # Same hook executed once
+        executed_pre_hook = Hook(
+            target=pre_hook.target,
+            calldata=pre_hook.calldata,
+            gas_limit=pre_hook.gas_limit,
+        )
+        executed_post_hook = Hook(
+            target=post_hook.target,
+            calldata=post_hook.calldata,
+            gas_limit=post_hook.gas_limit,
+        )
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.hook_candidates = Hooks(
+            pre_hooks=[executed_pre_hook],  # Hook executed only once
+            post_hooks=[executed_post_hook],
+        )
+
+        # Two trades, both with the same hooks
+        offchain_trade_1 = Mock(spec=OffchainTrade)
+        offchain_trade_1.order_uid = order_uid
+        offchain_trade_1.already_executed_amount = 0  # First fill
+
+        offchain_trade_2 = Mock(spec=OffchainTrade)
+        offchain_trade_2.order_uid = order_uid_2
+        offchain_trade_2.already_executed_amount = 0  # First fill
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.order_hooks = {
+            order_uid: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook]),
+            order_uid_2: Hooks(pre_hooks=[pre_hook], post_hooks=[post_hook]),
+        }
+        offchain_data.trades = [offchain_trade_1, offchain_trade_2]
 
     assert check_hooks(onchain_data, offchain_data) == expected_result
