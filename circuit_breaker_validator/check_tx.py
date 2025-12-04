@@ -267,7 +267,8 @@ def check_hooks(
             like 'no_upstream_revert' to indicate this validation was performed during fetching.
 
        d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
-          - NOT IMPLEMENTED: Gas is validated as >= required, with 0 meaning unlimited
+          - NOT IMPLEMENTED: Gas is validated as >= required,
+            If no gas cap is specified in the call, gas is set to math.inf
 
     Args:
         onchain_data: On-chain settlement data containing hook_candidates from transaction trace
