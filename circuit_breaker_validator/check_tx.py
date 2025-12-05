@@ -256,20 +256,6 @@ def check_hooks(
        a. There exists an internal CALL in the settlement transaction with a matching triplet:
           target, gasLimit, calldata
 
-       b. The hook needs to be attempted, meaning the hook reverting is not violating any rules
-          - NOT IMPLEMENTED: This requires transaction trace analysis to determine if the hook
-            was attempted. Future implementation may require extending Hook data structure with
-            an 'attempted' attribute.
-
-       c. Intermediate calls between the call to settle and hook execution must not revert
-          - NOT IMPLEMENTED: This requires transaction trace analysis to track call stack state.
-            Future implementation may require extending Hook data structure with an attribute
-            like 'no_upstream_revert' to indicate this validation was performed during fetching.
-
-       d. The available gas forwarded to the hook CALL is greater or equal than specified gasLimit
-          - NOT IMPLEMENTED: Gas is validated as >= required,
-            If no gas cap is specified in the call, gas is set to math.inf
-
     Args:
         onchain_data: On-chain settlement data containing hook_candidates from transaction trace
         offchain_data: Off-chain settlement data containing expected hooks from order appData
