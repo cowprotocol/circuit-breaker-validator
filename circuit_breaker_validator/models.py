@@ -268,8 +268,6 @@ class OffchainSettlementData:
         native_prices: Dict mapping token addresses to their native prices
         order_hooks: Dict mapping order_uid to Hooks for that order.
             May contain entries for orders not in this settlement without causing issues.
-            Hook validation iterates over trades and looks up hooks from this dict, so
-            extra entries are safely ignored.
     """
 
     # pylint: disable=too-many-instance-attributes
