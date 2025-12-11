@@ -15,6 +15,7 @@ from circuit_breaker_validator.check_tx import (
     check_orders,
     check_score,
     SCORE_CHECK_UPPER_THRESHOLD,
+    SCORE_CHECK_LOWER_THRESHOLD,
 )
 
 
@@ -466,10 +467,12 @@ def test_check_orders(scenario, expected_result):
         (-1, True),
         (0, True),
         (1, True),
-        (10**18, True),
+        (+SCORE_CHECK_LOWER_THRESHOLD, True),
         # fail if the scores are not (almost) equal
+        (10**18, False),
         (-(10**18), False),
         (-(SCORE_CHECK_UPPER_THRESHOLD + 1), False),
+        (+(SCORE_CHECK_LOWER_THRESHOLD + 1), False),
     ],
 )
 def test_check_score(difference, expected_result):
