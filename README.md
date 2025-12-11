@@ -102,8 +102,10 @@ The library enforces strict 1-to-1 trade mapping:
   - Have whitelisted JIT order owner (in `jit_order_addresses`)
 
 ### 3. Score Validation
-- Computed score must not be lower than reported score by more than threshold
-- Threshold: `10^12` atoms (`SCORE_CHECK_THRESHOLD`)
+- Computed score must not be much lower or much higher than reported score:
+- Upper Threshold: `10^12` atoms (`SCORE_CHECK_UPPER_THRESHOLD`); corresponds to over-reporting
+- Lower Threshold: `10^11` atoms (`SCORE_CHECK_LOWER_THRESHOLD`); corresponds to under-reporting
+
 
 ## Integration Guide
 
