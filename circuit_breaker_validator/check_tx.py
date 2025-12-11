@@ -12,7 +12,8 @@ from circuit_breaker_validator.models import (
 )
 from circuit_breaker_validator.scores import compute_score
 
-SCORE_CHECK_THRESHOLD = 10**12
+SCORE_CHECK_UPPER_THRESHOLD = 10**12
+SCORE_CHECK_LOWER_THRESHOLD = 2 * SCORE_CHECK_UPPER_THRESHOLD
 
 
 def inspect(
@@ -129,7 +130,7 @@ def check_score(
         f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
         f"Difference {competition_score - computed_score}"
     )
-    if competition_score - computed_score > SCORE_CHECK_THRESHOLD:
+    if competition_score - computed_score > SCORE_CHECK_UPPER_THRESHOLD:
         logger.error(
             f"Transaction hash {onchain_data.tx_hash!r}: "
             "Computed score smaller than score reported in competition."
@@ -139,4 +140,15 @@ def check_score(
             f"Difference {competition_score - computed_score}"
         )
         return False
+    if computed_score - competition_score > SCORE_CHECK_LOWER_THRESHOLD:
+        logger.error(
+            f"Transaction hash {onchain_data.tx_hash!r}: "
+            "Computed score much larger than score reported in competition."
+        )
+        logger.warning(
+            f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
+            f"Difference {competition_score - computed_score}"
+        )
+        return False
+
     return True
