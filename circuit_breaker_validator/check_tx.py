@@ -13,7 +13,7 @@ from circuit_breaker_validator.models import (
 from circuit_breaker_validator.scores import compute_score
 
 SCORE_CHECK_UPPER_THRESHOLD = 10**12
-SCORE_CHECK_LOWER_THRESHOLD = 2 * SCORE_CHECK_UPPER_THRESHOLD
+SCORE_CHECK_LOWER_THRESHOLD = 10 * SCORE_CHECK_UPPER_THRESHOLD
 
 
 def inspect(
