@@ -49,7 +49,7 @@ def compute_score(
             offchain_data.trade_fee_policies.get(trade.order_uid, [])
         )
         # conversion to buy token using limit price
-        if trade.surplus_token() == trade.sell_token:
+        if trade.kind == 'buy':
             raw_surplus_buy_token = raw_surplus * Fraction(
                 trade.limit_buy_amount, trade.limit_sell_amount
             )
