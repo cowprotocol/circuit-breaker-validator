@@ -46,6 +46,7 @@ def test_compute_score(order_type, surplus_token, expected_score):
         trade.sell_token = sell_token
         trade.buy_token = buy_token
         trade.surplus_token = Mock(return_value=trade.buy_token)
+        trade.kind = order_type
     else:
         # Buy order (surplus in sell token)
         trade = Mock(spec=OffchainTrade)
@@ -56,6 +57,7 @@ def test_compute_score(order_type, surplus_token, expected_score):
         trade.limit_sell_amount = limit_sell_amount
         trade.limit_buy_amount = limit_buy_amount
         trade.surplus_token = Mock(return_value=trade.sell_token)
+        trade.kind = order_type
 
     onchain_data = Mock(spec=OnchainSettlementData)
     onchain_data.trades = [trade]
@@ -104,6 +106,7 @@ def test_compute_score_missing_native_price(
     trade.sell_token = sell_token
     trade.buy_token = buy_token
     trade.surplus_token = Mock(return_value=trade.buy_token)
+    trade.kind = "sell"
 
     onchain_data = OnchainSettlementData(
         auction_id,
