@@ -259,9 +259,7 @@ def check_hooks(
     # Check hooks for each executed trade
     for trade in offchain_data.trades:
         # Get hooks for this trade, default to empty Hooks if not present
-        hooks = offchain_data.order_hooks.get(
-            trade.order_uid, Hooks()
-        )
+        hooks = offchain_data.order_hooks.get(trade.order_uid, Hooks())
 
         if not _check_order_hooks(onchain_data.tx_hash, trade, hooks, hook_candidates):
             return False

@@ -227,7 +227,7 @@ class OffchainTrade(Trade):
     """Class to describe offchain info about a trade."""
 
     # This value represent how much the order was executed before the settlement.
-    # If the order is executed twice in the same settlement, this value will be the same for both orders.
+    # If the order is executed twice in the same settlement, value will be the same for both.
     # 0 means it's the first fill, any other value means it's not
     already_executed_amount: int
 
