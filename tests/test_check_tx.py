@@ -536,7 +536,7 @@ def test_check_hooks(scenario, expected_result):
         # No hooks defined in offchain data
         onchain_data = Mock(spec=OnchainSettlementData)
         onchain_data.tx_hash = tx_hash
-        onchain_data.hook_candidates = Hooks(pre_hooks=[], post_hooks=[])
+        onchain_data.hook_candidates = Hooks()
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.order_hooks = {}

@@ -113,7 +113,7 @@ def test_compute_score_missing_native_price(
         tx_hash,
         solver,
         [trade],
-        hook_candidates=Hooks(pre_hooks=[], post_hooks=[]),
+        hook_candidates=Hooks(),
     )
 
     offchain_data = Mock(spec=OffchainSettlementData)

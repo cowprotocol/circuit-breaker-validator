@@ -192,19 +192,6 @@ def _check_order_hooks(
     # Pre-hooks should only be executed on the first fill
     is_first_fill = trade.already_executed_amount == 0
 
-    # If there are hooks in the offchain data and it's the first fill,
-    # but there aren't hook candidates in onchain data, return False
-    has_no_hook_candidates = (
-        not hook_candidates.pre_hooks and not hook_candidates.post_hooks
-    )
-    if has_no_hook_candidates and is_first_fill:
-        logger.error(
-            f"Transaction hash {tx_hash!r}: "
-            f"Hooks defined for order {trade.order_uid!r} "
-            f"but no hook candidates found in transaction"
-        )
-        return False
-
     # Check pre-hooks (only for the first fill)
     if is_first_fill:
         for pre_hook in hooks.pre_hooks:
@@ -273,7 +260,7 @@ def check_hooks(
     for trade in offchain_data.trades:
         # Get hooks for this trade, default to empty Hooks if not present
         hooks = offchain_data.order_hooks.get(
-            trade.order_uid, Hooks(pre_hooks=[], post_hooks=[])
+            trade.order_uid, Hooks()
         )
 
         if not _check_order_hooks(onchain_data.tx_hash, trade, hooks, hook_candidates):
