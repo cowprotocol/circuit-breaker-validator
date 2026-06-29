@@ -15,9 +15,6 @@ from circuit_breaker_validator.models import (
     Hook,
     Hooks,
 )
-from circuit_breaker_validator.scores import compute_score
-
-SCORE_CHECK_THRESHOLD = 10**12
 
 
 def inspect(
@@ -118,36 +115,6 @@ def check_orders(
                 )
                 return False
 
-    return True
-
-
-def check_score(
-    onchain_data: OnchainSettlementData,
-    offchain_data: OffchainSettlementData,
-) -> bool:
-    """DEPRECATED because scores are computed in the autopilot.
-    Any denylisting of a solver would be the result of a wrong implementation
-    in the autopilot and not the solvers fault.
-
-    Check if the score of the settlement equals revealed score
-    The tolerance of 100 (atoms) is probably due to different rounding in this code
-    compared to the driver/autopilot"""
-    computed_score = compute_score(onchain_data, offchain_data)
-    competition_score = offchain_data.score
-    logger.debug(
-        f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
-        f"Difference {competition_score - computed_score}"
-    )
-    if competition_score - computed_score > SCORE_CHECK_THRESHOLD:
-        logger.error(
-            f"Transaction hash {onchain_data.tx_hash!r}: "
-            "Computed score smaller than score reported in competition."
-        )
-        logger.warning(
-            f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
-            f"Difference {competition_score - computed_score}"
-        )
-        return False
     return True
 
 
