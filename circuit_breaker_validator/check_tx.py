@@ -29,7 +29,7 @@ def inspect(
     """
     logger.info(f"Checking auction with id {onchain_data.auction_id}")
 
-    checks = [check_solver, check_orders, check_score, check_hooks]
+    checks = [check_solver, check_orders, check_hooks]
     results = [check(onchain_data, offchain_data) for check in checks]
 
     result = all(results)
@@ -125,7 +125,11 @@ def check_score(
     onchain_data: OnchainSettlementData,
     offchain_data: OffchainSettlementData,
 ) -> bool:
-    """Check if the score of the settlement equals revealed score
+    """DEPRECATED because scores are computed in the autopilot.
+    Any denylisting of a solver would be the result of a wrong implementation
+    in the autopilot and not the solvers fault.
+
+    Check if the score of the settlement equals revealed score
     The tolerance of 100 (atoms) is probably due to different rounding in this code
     compared to the driver/autopilot"""
     computed_score = compute_score(onchain_data, offchain_data)

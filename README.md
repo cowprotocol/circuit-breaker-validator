@@ -8,7 +8,6 @@ The Competition Monitoring library enforces three main validation rules for sett
 
 1. **Solver Identity Verification** - Ensures the on-chain settlement was submitted by the winning solver
 2. **Order Validation** - Validates trade execution, amounts, and surplus rules
-3. **Score Validation** - Verifies computed scores match reported auction scores
 
 ## Core Components
 
@@ -52,15 +51,6 @@ Main validation orchestrator that runs all checks. Raises `InvalidSettlement` if
     2. **Amount Matching** - Sell/buy amounts must match between execution and proposal
     3. **Surplus Validation** - Orders with surplus must be valid or whitelisted JIT orders
 
-- **`check_score(onchain_data, offchain_data) -> bool`**
-  - Validates computed score matches reported auction score (within threshold)
-
-### Score Computation (`scores.py`)
-
-#### `compute_score(onchain_data, offchain_data) -> int`
-
-Computes the settlement score by summing raw surplus values across all trades.
-
 ### Exceptions (`exceptions.py`)
 
 - **`InvalidSettlement`** - Raised when settlement violates protocol rules
@@ -100,10 +90,6 @@ The library enforces strict 1-to-1 trade mapping:
 - Orders with non-zero surplus must either:
   - Be part of the auction (in `valid_orders`), OR
   - Have whitelisted JIT order owner (in `jit_order_addresses`)
-
-### 3. Score Validation
-- Computed score must not be lower than reported score by more than threshold
-- Threshold: `10^12` atoms (`SCORE_CHECK_THRESHOLD`)
 
 ## Integration Guide
 
