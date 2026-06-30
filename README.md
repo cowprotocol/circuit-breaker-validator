@@ -8,7 +8,6 @@ The Competition Monitoring library enforces three main validation rules for sett
 
 1. **Solver Identity Verification** - Ensures the on-chain settlement was submitted by the winning solver
 2. **Order Validation** - Validates trade execution, amounts, and surplus rules
-3. **Score Validation** - Verifies computed scores match reported auction scores
 
 ## Core Components
 
@@ -24,16 +23,12 @@ The Competition Monitoring library enforces three main validation rules for sett
   - `auction_id`: Auction identifier
   - `solver`: Winning solver address
   - `trades`: List of proposed trades
-  - `score`: Reported auction score
-  - `trade_fee_policies`: Fee policies per order
   - `valid_orders`: Set of valid order UIDs
   - `jit_order_addresses`: Whitelisted JIT order addresses
   - `native_prices`: Token prices in native currency
 
 - **`OnchainTrade`** - Executed trade data
 - **`OffchainTrade`** - Proposed trade data
-- **`Quote`** - Quote information for price improvement calculation
-- **Fee Policy Models** - `VolumeFeePolicy`, `SurplusFeePolicy`, `PriceImprovementFeePolicy`
 
 ### Validation Functions (`check_tx.py`)
 
@@ -51,15 +46,6 @@ Main validation orchestrator that runs all checks. Raises `InvalidSettlement` if
     1. **1-to-1 Mapping** - Executed trades must exactly match proposed trades
     2. **Amount Matching** - Sell/buy amounts must match between execution and proposal
     3. **Surplus Validation** - Orders with surplus must be valid or whitelisted JIT orders
-
-- **`check_score(onchain_data, offchain_data) -> bool`**
-  - Validates computed score matches reported auction score (within threshold)
-
-### Score Computation (`scores.py`)
-
-#### `compute_score(onchain_data, offchain_data) -> int`
-
-Computes the settlement score by summing raw surplus values across all trades.
 
 ### Exceptions (`exceptions.py`)
 
@@ -100,10 +86,6 @@ The library enforces strict 1-to-1 trade mapping:
 - Orders with non-zero surplus must either:
   - Be part of the auction (in `valid_orders`), OR
   - Have whitelisted JIT order owner (in `jit_order_addresses`)
-
-### 3. Score Validation
-- Computed score must not be lower than reported score by more than threshold
-- Threshold: `10^12` atoms (`SCORE_CHECK_THRESHOLD`)
 
 ## Integration Guide
 
@@ -173,8 +155,6 @@ offchain_data = OffchainSettlementData(
             buy_amount=2000000,
         )
     ],
-    score=100000000000000000,
-    trade_fee_policies={},
     valid_orders={HexBytes("0xORDER_UID")},
     jit_order_addresses=set(),
     native_prices={HexBytes("0xTOKEN_B"): 1000000000000000000},

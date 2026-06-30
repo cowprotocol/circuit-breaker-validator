@@ -1,6 +1,6 @@
 """Dummy test"""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from hexbytes import HexBytes
@@ -15,9 +15,7 @@ from circuit_breaker_validator.models import (
 from circuit_breaker_validator.check_tx import (
     check_solver,
     check_orders,
-    check_score,
     check_hooks,
-    SCORE_CHECK_THRESHOLD,
 )
 
 
@@ -459,35 +457,6 @@ def test_check_orders(scenario, expected_result):
         offchain_data.jit_order_addresses = jit_order_addresses
 
     assert check_orders(onchain_data, offchain_data) == expected_result
-
-
-@pytest.mark.parametrize(
-    "difference,expected_result",
-    [
-        # succeed if scores are (almost) equal
-        (-SCORE_CHECK_THRESHOLD, True),
-        (-1, True),
-        (0, True),
-        (1, True),
-        (10**18, True),
-        # fail if the scores are not (almost) equal
-        (-(10**18), False),
-        (-(SCORE_CHECK_THRESHOLD + 1), False),
-    ],
-)
-def test_check_score(difference, expected_result):
-    """Test that check_score returns the expected result based on score difference"""
-    tx_hash = HexBytes("0x00")
-    onchain_data = Mock(spec=OnchainSettlementData)
-    onchain_data.tx_hash = tx_hash
-    offchain_data = Mock(spec=OffchainSettlementData)
-    offchain_data.score = 10**18
-
-    with patch(
-        "circuit_breaker_validator.check_tx.compute_score",
-        return_value=10**18 + difference,
-    ):
-        assert check_score(onchain_data, offchain_data) == expected_result
 
 
 @pytest.mark.parametrize(

@@ -15,9 +15,6 @@ from circuit_breaker_validator.models import (
     Hook,
     Hooks,
 )
-from circuit_breaker_validator.scores import compute_score
-
-SCORE_CHECK_THRESHOLD = 10**12
 
 
 def inspect(
@@ -29,7 +26,7 @@ def inspect(
     """
     logger.info(f"Checking auction with id {onchain_data.auction_id}")
 
-    checks = [check_solver, check_orders, check_score, check_hooks]
+    checks = [check_solver, check_orders, check_hooks]
     results = [check(onchain_data, offchain_data) for check in checks]
 
     result = all(results)
@@ -118,32 +115,6 @@ def check_orders(
                 )
                 return False
 
-    return True
-
-
-def check_score(
-    onchain_data: OnchainSettlementData,
-    offchain_data: OffchainSettlementData,
-) -> bool:
-    """Check if the score of the settlement equals revealed score
-    The tolerance of 100 (atoms) is probably due to different rounding in this code
-    compared to the driver/autopilot"""
-    computed_score = compute_score(onchain_data, offchain_data)
-    competition_score = offchain_data.score
-    logger.debug(
-        f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
-        f"Difference {competition_score - computed_score}"
-    )
-    if competition_score - computed_score > SCORE_CHECK_THRESHOLD:
-        logger.error(
-            f"Transaction hash {onchain_data.tx_hash!r}: "
-            "Computed score smaller than score reported in competition."
-        )
-        logger.warning(
-            f"Score in competition: {competition_score}\tComputed score: {computed_score}\t"
-            f"Difference {competition_score - computed_score}"
-        )
-        return False
     return True
 
 
