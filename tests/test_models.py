@@ -8,6 +8,7 @@ from circuit_breaker_validator.models import (
     OnchainTrade,
 )
 
+
 @pytest.mark.parametrize(
     "kind,sell_amount,buy_amount,limit_sell_amount,limit_buy_amount,expected_surplus",
     [
@@ -29,5 +30,3 @@ def test_trade_surplus(
     trade.kind = kind
 
     assert OnchainTrade.surplus(trade) == expected_surplus
-
-
