@@ -23,16 +23,12 @@ The Competition Monitoring library enforces three main validation rules for sett
   - `auction_id`: Auction identifier
   - `solver`: Winning solver address
   - `trades`: List of proposed trades
-  - `score`: Reported auction score
-  - `trade_fee_policies`: Fee policies per order
   - `valid_orders`: Set of valid order UIDs
   - `jit_order_addresses`: Whitelisted JIT order addresses
   - `native_prices`: Token prices in native currency
 
 - **`OnchainTrade`** - Executed trade data
 - **`OffchainTrade`** - Proposed trade data
-- **`Quote`** - Quote information for price improvement calculation
-- **Fee Policy Models** - `VolumeFeePolicy`, `SurplusFeePolicy`, `PriceImprovementFeePolicy`
 
 ### Validation Functions (`check_tx.py`)
 
@@ -159,8 +155,6 @@ offchain_data = OffchainSettlementData(
             buy_amount=2000000,
         )
     ],
-    score=100000000000000000,
-    trade_fee_policies={},
     valid_orders={HexBytes("0xORDER_UID")},
     jit_order_addresses=set(),
     native_prices={HexBytes("0xTOKEN_B"): 1000000000000000000},
