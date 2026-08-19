@@ -62,16 +62,12 @@ def check_orders(
 ) -> bool:
     """Check orders of the settlement
 
-    Performs three validation checks in order:
+    Performs two validation checks in order:
     1. 1-to-1 mapping between executed and proposed trades
        - All executed trades must have been proposed in the bid
        - All JIT orders must be revealed in the bidding phase
     2. Executed amounts match proposed amounts
        - Sell and buy amounts must match exactly between on-chain and off-chain
-    3. Surplus validation for non-standard orders
-       - Orders with non-zero surplus either:
-         - were part of the auction (normal order), OR
-         - have a surplus capturing jit order owner (cow amm order)
     """
     onchain_trades_dict = {trade.order_uid: trade for trade in onchain_data.trades}
     offchain_trades_dict = {trade.order_uid: trade for trade in offchain_data.trades}
@@ -101,19 +97,6 @@ def check_orders(
                 f"Off-chain trade: {offchain_trade}"
             )
             return False
-
-    # Check 3: surplus validation for non-standard orders
-    for order_uid, onchain_trade in onchain_trades_dict.items():
-        if onchain_trade.surplus() > 0:
-            if (
-                order_uid not in offchain_data.valid_orders
-                and onchain_trade.owner not in offchain_data.jit_order_addresses
-            ):
-                logger.error(
-                    f"Transaction hash {onchain_data.tx_hash!r}: "
-                    f"Non-CoW AMM JIT order with non-zero surplus: {order_uid!r}"
-                )
-                return False
 
     return True
 

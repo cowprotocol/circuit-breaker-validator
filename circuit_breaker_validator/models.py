@@ -121,21 +121,12 @@ class OffchainSettlementData:
         auction_id: Unique identifier for the auction
         solver: Address of the solver that submitted the settlement
         trades: List of trades proposed in the settlement
-        valid_orders: Set of order_uids that were valid in the auction
-        jit_order_addresses: Set of addresses that are JIT order owners
-        native_prices: Dict mapping token addresses to their native prices
         order_hooks: Dict mapping order_uid to Hooks for that order.
             May contain entries for orders not in this settlement without causing issues.
     """
-
-    # pylint: disable=too-many-instance-attributes
 
     auction_id: int
     # solution data
     solver: HexBytes
     trades: list[OffchainTrade]
-    # auction data
-    valid_orders: set[HexBytes]
-    jit_order_addresses: set[HexBytes]
-    native_prices: dict[HexBytes, int]
     order_hooks: dict[HexBytes, Hooks]

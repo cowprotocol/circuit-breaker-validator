@@ -44,16 +44,14 @@ def test_check_solver(onchain_solver, offchain_solver, expected_result):
 @pytest.mark.parametrize(
     "scenario,expected_result",
     [
-        # JIT order with zero surplus - now fails due to 1-to-1 mapping requirement
-        ("jit_order_zero_surplus_not_revealed", False),
-        # JIT order with zero surplus that was revealed - should pass
-        ("jit_order_zero_surplus_revealed", True),
-        # JIT order with non-zero surplus
-        ("jit_order_nonzero_surplus", False),
-        # JIT order with matching amounts (CoW AMM)
-        ("jit_order_matching_amounts", True),
-        # Regular order with matching amounts
-        ("regular_order_matching_amounts", True),
+        # Order with zero surplus that was not revealed - fails due to 1-to-1 mapping requirement
+        ("zero_surplus_not_revealed", False),
+        # Order with zero surplus that was revealed - should pass
+        ("zero_surplus_revealed", True),
+        # Order with non-zero surplus that was not revealed
+        ("nonzero_surplus_not_revealed", False),
+        # Order with matching amounts and non-zero surplus - should pass
+        ("matching_amounts_with_surplus", True),
         # Order with mismatched buy amount
         ("mismatched_buy_amount", False),
         # Order with mismatched sell amount
@@ -79,11 +77,9 @@ def test_check_orders(scenario, expected_result):
     sell_amount = 10**25
     buy_amount = 99 * 10**25
 
-    if scenario == "jit_order_zero_surplus_not_revealed":
-        # JIT order with zero surplus that was not revealed - fails 1-to-1 mapping
+    if scenario == "zero_surplus_not_revealed":
+        # Order with zero surplus that was not revealed - fails 1-to-1 mapping
         owner = HexBytes("0x11")
-        valid_orders = set()
-        jit_order_addresses = {HexBytes("0x12")}
 
         trade = Mock(spec=OnchainTrade)
         trade.order_uid = order_uid
@@ -96,14 +92,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = []
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
-    elif scenario == "jit_order_zero_surplus_revealed":
-        # JIT order with zero surplus that was revealed - passes
+    elif scenario == "zero_surplus_revealed":
+        # Order with zero surplus that was revealed - passes
         owner = HexBytes("0x11")
-        valid_orders = set()
-        jit_order_addresses = {HexBytes("0x12")}
 
         onchain_trade = Mock(spec=OnchainTrade)
         onchain_trade.order_uid = order_uid
@@ -124,14 +116,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
-    elif scenario == "jit_order_nonzero_surplus":
-        # JIT order with non-zero surplus
+    elif scenario == "nonzero_surplus_not_revealed":
+        # Order with non-zero surplus that was not revealed - fails 1-to-1 mapping
         owner = HexBytes("0x11")
-        valid_orders = set()
-        jit_order_addresses = {HexBytes("0x12")}
 
         trade = Mock(spec=OnchainTrade)
         trade.order_uid = order_uid
@@ -144,14 +132,11 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = []
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
-    elif scenario == "jit_order_matching_amounts":
-        # JIT order with matching amounts
+    elif scenario == "matching_amounts_with_surplus":
+        # Order with matching amounts and non-zero surplus - passes
+        # (surplus is no longer restricted to whitelisted/auction orders)
         owner = HexBytes("0x11")
-        valid_orders = set()
-        jit_order_addresses = {HexBytes("0x11")}
 
         onchain_trade = Mock(spec=OnchainTrade)
         onchain_trade.order_uid = order_uid
@@ -172,42 +157,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
-
-    elif scenario == "regular_order_matching_amounts":
-        # Regular order with matching amounts
-        owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
-
-        onchain_trade = Mock(spec=OnchainTrade)
-        onchain_trade.order_uid = order_uid
-        onchain_trade.owner = owner
-        onchain_trade.sell_amount = sell_amount
-        onchain_trade.buy_amount = buy_amount
-        onchain_trade.surplus = Mock(return_value=1)
-
-        offchain_trade = Mock(spec=OffchainTrade)
-        offchain_trade.order_uid = order_uid
-        offchain_trade.owner = owner
-        offchain_trade.sell_amount = sell_amount
-        offchain_trade.buy_amount = buy_amount
-
-        onchain_data = Mock(spec=OnchainSettlementData)
-        onchain_data.tx_hash = tx_hash
-        onchain_data.trades = [onchain_trade]
-
-        offchain_data = Mock(spec=OffchainSettlementData)
-        offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "mismatched_buy_amount":
         # Order with mismatched buy amount
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
 
         onchain_trade = Mock(spec=OnchainTrade)
         onchain_trade.order_uid = order_uid
@@ -228,14 +181,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "mismatched_sell_amount":
         # Order with mismatched sell amount
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
 
         onchain_trade = Mock(spec=OnchainTrade)
         onchain_trade.order_uid = order_uid
@@ -256,14 +205,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "more_executed_than_proposed":
         # More executed trades than proposed (no 1-to-1 mapping)
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
         order_uid_2 = HexBytes("0x02")
 
         onchain_trade_1 = Mock(spec=OnchainTrade)
@@ -292,14 +237,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "more_proposed_than_executed":
         # More proposed trades than executed (no 1-to-1 mapping)
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
         order_uid_2 = HexBytes("0x02")
 
         onchain_trade = Mock(spec=OnchainTrade)
@@ -327,14 +268,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade_1, offchain_trade_2]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "executed_not_in_proposed":
         # Executed trade not in proposed trades
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
         order_uid_2 = HexBytes("0x02")
 
         onchain_trade = Mock(spec=OnchainTrade)
@@ -356,14 +293,10 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "proposed_not_in_executed":
         # Proposed trade not in executed trades
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
         order_uid_2 = HexBytes("0x02")
 
         onchain_trade = Mock(spec=OnchainTrade)
@@ -385,17 +318,12 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "multiple_trades_matching":
         # Multiple trades with correct 1-to-1 mapping
         owner = HexBytes("0x12")
-        valid_orders = {order_uid}
-        jit_order_addresses = {HexBytes("0x11")}
         order_uid_2 = HexBytes("0x02")
         order_uid_3 = HexBytes("0x03")
-        valid_orders = {order_uid, order_uid_2, order_uid_3}
 
         onchain_trade_1 = Mock(spec=OnchainTrade)
         onchain_trade_1.order_uid = order_uid
@@ -439,13 +367,9 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade_1, offchain_trade_2, offchain_trade_3]
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     elif scenario == "empty_trades_both_sides":
         # Empty trades on both sides - valid 1-to-1 mapping (no trades)
-        valid_orders = set()
-        jit_order_addresses = set()
 
         onchain_data = Mock(spec=OnchainSettlementData)
         onchain_data.tx_hash = tx_hash
@@ -453,8 +377,6 @@ def test_check_orders(scenario, expected_result):
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = []
-        offchain_data.valid_orders = valid_orders
-        offchain_data.jit_order_addresses = jit_order_addresses
 
     assert check_orders(onchain_data, offchain_data) == expected_result
 
