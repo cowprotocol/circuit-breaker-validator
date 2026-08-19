@@ -7,7 +7,8 @@ A Python library for validating CoW Protocol settlement transactions. This libra
 The Competition Monitoring library enforces three main validation rules for settlement transactions:
 
 1. **Solver Identity Verification** - Ensures the on-chain settlement was submitted by the winning solver
-2. **Order Validation** - Validates trade execution, amounts, and surplus rules
+2. **Order Validation** - Validates that executed trades match what was proposed in the bid
+3. **Hook Validation** - Validates that pre/post hooks declared in appData were executed
 
 ## Core Components
 
@@ -23,9 +24,7 @@ The Competition Monitoring library enforces three main validation rules for sett
   - `auction_id`: Auction identifier
   - `solver`: Winning solver address
   - `trades`: List of proposed trades
-  - `valid_orders`: Set of valid order UIDs
-  - `jit_order_addresses`: Whitelisted JIT order addresses
-  - `native_prices`: Token prices in native currency
+  - `order_hooks`: Dict mapping order_uid to expected hooks for that order
 
 - **`OnchainTrade`** - Executed trade data
 - **`OffchainTrade`** - Proposed trade data
@@ -42,10 +41,9 @@ Main validation orchestrator that runs all checks. Raises `InvalidSettlement` if
   - Validates solver address matches between on-chain and off-chain data
 
 - **`check_orders(onchain_data, offchain_data) -> bool`**
-  - Performs three ordered checks:
+  - Performs two ordered checks:
     1. **1-to-1 Mapping** - Executed trades must exactly match proposed trades
     2. **Amount Matching** - Sell/buy amounts must match between execution and proposal
-    3. **Surplus Validation** - Orders with surplus must be valid or whitelisted JIT orders
 
 ### Exceptions (`exceptions.py`)
 
@@ -82,11 +80,6 @@ The library enforces strict 1-to-1 trade mapping:
 - `onchain.buy_amount == offchain.buy_amount`
 - No deviation allowed from proposed amounts
 
-#### 2c. Surplus Validation
-- Orders with non-zero surplus must either:
-  - Be part of the auction (in `valid_orders`), OR
-  - Have whitelisted JIT order owner (in `jit_order_addresses`)
-
 ## Integration Guide
 
 To use this library in a monitoring system like Circuit Breaker, you need to provide:
@@ -101,9 +94,7 @@ Implement a component to fetch settlement data from blockchain:
 Implement a component to fetch auction data:
 - Winning solver and solution details
 - Proposed trades and amounts
-- Fee policies for each order
-- Valid order UIDs and JIT order addresses
-- Native token prices
+- Hooks declared for each order (for `check_hooks`)
 
 ### 3. Settlement Processor
 Use the library's `inspect()` function to validate settlements:
@@ -153,11 +144,10 @@ offchain_data = OffchainSettlementData(
             order_uid=HexBytes("0xORDER_UID"),
             sell_amount=1000000,
             buy_amount=2000000,
+            already_executed_amount=0,
         )
     ],
-    valid_orders={HexBytes("0xORDER_UID")},
-    jit_order_addresses=set(),
-    native_prices={HexBytes("0xTOKEN_B"): 1000000000000000000},
+    order_hooks={},
 )
 
 # Validate settlement
