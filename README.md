@@ -1,4 +1,4 @@
-# Circuit Braker Validator Library
+# Circuit Breaker Validator Library
 
 A Python library for validating CoW Protocol settlement transactions. This library provides core validation logic to ensure solver settlements comply with CoW Protocol rules by comparing on-chain execution data with off-chain auction proposals.
 
