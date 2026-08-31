@@ -64,6 +64,8 @@ def test_check_solver(onchain_solver, offchain_solver, expected_result):
         ("executed_not_in_proposed", False),
         # Proposed trade not in executed (different order_uid)
         ("proposed_not_in_executed", False),
+        # Same order_uid executed twice on-chain but proposed once
+        ("duplicate_onchain_order_uid", False),
         # Multiple matching trades with correct 1-to-1 mapping
         ("multiple_trades_matching", True),
         # Empty trades on both sides - valid 1-to-1 mapping
@@ -315,6 +317,37 @@ def test_check_orders(scenario, expected_result):
         onchain_data = Mock(spec=OnchainSettlementData)
         onchain_data.tx_hash = tx_hash
         onchain_data.trades = [onchain_trade]
+
+        offchain_data = Mock(spec=OffchainSettlementData)
+        offchain_data.trades = [offchain_trade]
+
+    elif scenario == "duplicate_onchain_order_uid":
+        # Same order_uid appears twice on-chain, once off-chain.
+        owner = HexBytes("0x12")
+
+        onchain_trade_1 = Mock(spec=OnchainTrade)
+        onchain_trade_1.order_uid = order_uid
+        onchain_trade_1.owner = owner
+        onchain_trade_1.sell_amount = sell_amount
+        onchain_trade_1.buy_amount = buy_amount
+        onchain_trade_1.surplus = Mock(return_value=0)
+
+        onchain_trade_2 = Mock(spec=OnchainTrade)
+        onchain_trade_2.order_uid = order_uid  # Duplicate order_uid
+        onchain_trade_2.owner = owner
+        onchain_trade_2.sell_amount = sell_amount
+        onchain_trade_2.buy_amount = buy_amount
+        onchain_trade_2.surplus = Mock(return_value=0)
+
+        offchain_trade = Mock(spec=OffchainTrade)
+        offchain_trade.order_uid = order_uid
+        offchain_trade.owner = owner
+        offchain_trade.sell_amount = sell_amount
+        offchain_trade.buy_amount = buy_amount
+
+        onchain_data = Mock(spec=OnchainSettlementData)
+        onchain_data.tx_hash = tx_hash
+        onchain_data.trades = [onchain_trade_1, onchain_trade_2]
 
         offchain_data = Mock(spec=OffchainSettlementData)
         offchain_data.trades = [offchain_trade]

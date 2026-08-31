@@ -73,11 +73,20 @@ def check_orders(
     offchain_trades_dict = {trade.order_uid: trade for trade in offchain_data.trades}
 
     # Check 1: 1-to-1 mapping between executed and proposed trades
-    if onchain_trades_dict.keys() != offchain_trades_dict.keys():
+    only_onchain = onchain_trades_dict.keys() - offchain_trades_dict.keys()
+    only_offchain = offchain_trades_dict.keys() - onchain_trades_dict.keys()
+    if only_onchain != set() or only_offchain != set():
         logger.error(
             f"Transaction hash {onchain_data.tx_hash!r}: "
-            f"Trades mismatch. On-chain: {len(onchain_trades_dict)}, "
-            f"Off-chain: {len(offchain_trades_dict)}"
+            f"Trades mismatch. Only on-chain: {only_onchain}, "
+            f"Only off-chain: {only_offchain}"
+        )
+        return False
+    if len(onchain_data.trades) != len(offchain_data.trades):
+        logger.error(
+            f"Transaction hash {onchain_data.tx_hash!r}: "
+            f"Trades count mismatch. On-chain: {len(onchain_data.trades)}, "
+            f"Off-chain: {len(offchain_data.trades)}"
         )
         return False
 
