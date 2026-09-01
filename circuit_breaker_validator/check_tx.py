@@ -72,12 +72,23 @@ def check_orders(
     onchain_trades_dict = {trade.order_uid: trade for trade in onchain_data.trades}
     offchain_trades_dict = {trade.order_uid: trade for trade in offchain_data.trades}
 
-    # Check 1: 1-to-1 mapping between executed and proposed trades
+    # Check 1: 1-to-1 mapping between executed and proposed trades (2 sub-checks)
+    # a. we first check if the set of orders executed onchain is identical with the set of orders
+    #    proposed for execution in the offchain bid
     if onchain_trades_dict.keys() != offchain_trades_dict.keys():
         logger.error(
             f"Transaction hash {onchain_data.tx_hash!r}: "
-            f"Trades mismatch. On-chain: {len(onchain_trades_dict)}, "
-            f"Off-chain: {len(offchain_trades_dict)}"
+            f"Trades mismatch. On-chain trades: {onchain_trades_dict.keys()}, "
+            f"Off-chain: {offchain_trades_dict.keys()}"
+        )
+        return False
+    # b. we then check if the onchain execution includes double execution of a
+    #    partially fillable order. Note this is prohibited in the offchain bidding
+    if len(onchain_trades_dict) != len(onchain_data.trades):
+        logger.error(
+            f"Transaction hash {onchain_data.tx_hash!r}: "
+            f"Trades count mismatch. On-chain: {len(onchain_data.trades)}, "
+            f"Off-chain: {len(onchain_trades_dict)}"
         )
         return False
 
