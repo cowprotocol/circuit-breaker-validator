@@ -75,23 +75,20 @@ def check_orders(
     # Check 1: 1-to-1 mapping between executed and proposed trades (2 sub-checks)
     # a. we first check if the set of orders executed onchain is identical with the set of orders
     #    proposed for execution in the offchain bid
-    only_onchain = onchain_trades_dict.keys() - offchain_trades_dict.keys()
-    only_offchain = offchain_trades_dict.keys() - onchain_trades_dict.keys()
-    if only_onchain != set() or only_offchain != set():
+    if onchain_trades_dict.keys() != offchain_trades_dict.keys():
         logger.error(
             f"Transaction hash {onchain_data.tx_hash!r}: "
-            f"Trades mismatch. Only on-chain: {only_onchain}, "
-            f"Only off-chain: {only_offchain}"
+            f"Trades mismatch. On-chain trades: {onchain_trades_dict.keys()}, "
+            f"Off-chain: {offchain_trades_dict.keys()}"
         )
         return False
-    # b. we then check if the number of trade events onchain matches the number of trades
-    #    in the offchain bid. This is needed for the case where a double execution of a
-    #    partially fillable order happens onchain within the same settlement
-    if len(onchain_data.trades) != len(offchain_data.trades):
+    # b. we then check if the onchain execution includes double execution of a
+    #    partially fillable order. Note this is prohibited in the offchain bidding
+    if len(onchain_trades_dict) != len(onchain_data.trades):
         logger.error(
             f"Transaction hash {onchain_data.tx_hash!r}: "
             f"Trades count mismatch. On-chain: {len(onchain_data.trades)}, "
-            f"Off-chain: {len(offchain_data.trades)}"
+            f"Off-chain: {len(onchain_trades_dict)}"
         )
         return False
 
