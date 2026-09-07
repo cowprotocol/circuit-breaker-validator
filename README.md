@@ -17,6 +17,7 @@ The Competition Monitoring library enforces three main validation rules for sett
 - **`OnchainSettlementData`** - Settlement data from blockchain
   - `auction_id`: Auction identifier
   - `tx_hash`: Transaction hash
+  - `block_number`: Block number the settlement was included in
   - `solver`: Solver address
   - `trades`: List of executed trades
 
@@ -119,6 +120,7 @@ python -m pytest tests/
 onchain_data = OnchainSettlementData(
     auction_id=12345,
     tx_hash=HexBytes("0x..."),
+    block_number=18000000,
     solver=HexBytes("0xSOLVER_ADDRESS"),
     trades=[
         OnchainTrade(

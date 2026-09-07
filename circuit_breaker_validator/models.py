@@ -98,6 +98,7 @@ class OnchainSettlementData:
     Attributes:
         auction_id: Unique identifier for the auction
         tx_hash: Transaction hash of the settlement
+        block_number: Block number the settlement was included in
         solver: Address of the solver that submitted the settlement
         trades: List of trades executed in this settlement
         hook_candidates: Hooks structure containing pre-hooks and post-hooks extracted from
@@ -108,6 +109,7 @@ class OnchainSettlementData:
 
     auction_id: int
     tx_hash: HexBytes
+    block_number: int
     solver: HexBytes
     trades: list[OnchainTrade]
     hook_candidates: Hooks
