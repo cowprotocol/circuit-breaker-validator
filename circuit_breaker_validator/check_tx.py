@@ -126,7 +126,7 @@ def _check_hook_execution(hook: Hook, hook_candidates: list[Hook]) -> bool:
         if (
             hook_candidate.target == hook.target
             and hook_candidate.calldata == hook.calldata
-            and hook_candidate.gas_limit == hook.gas_limit
+            and hook_candidate.compute_units == hook.compute_units
         ):
             return True
     return False
@@ -205,8 +205,8 @@ def check_hooks(
           - Explicitly checked: Post-hooks are always validated regardless of fill status
 
     4. Execution of a hook means:
-       a. There exists an internal CALL in the settlement transaction with a matching triplet:
-          target, gasLimit, calldata
+       a. There exists an internal call in the settlement transaction with a matching triplet:
+          target, calldata, compute_units
 
     Args:
         onchain_data: On-chain settlement data containing hook_candidates from transaction trace

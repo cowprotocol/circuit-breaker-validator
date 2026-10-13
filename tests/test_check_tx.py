@@ -426,7 +426,7 @@ def test_check_orders(scenario, expected_result):
         # Missing post-hook - should fail
         ("missing_post_hook", False),
         # Incorrect gas limit - should fail
-        ("incorrect_gas_limit", False),
+        ("incorrect_compute_units", False),
         # First fill with pre-hooks - should pass
         ("first_fill_with_pre_hooks", True),
         # Subsequent fill without pre-hooks - should pass
@@ -448,12 +448,12 @@ def test_check_hooks(scenario, expected_result):
     pre_hook = Hook(
         target=HexBytes("0xC01De8aB58f29E4d9fa9e274eC7c05a04e397312"),
         calldata=HexBytes("0xc2985578"),
-        gas_limit=1030000,
+        compute_units=1030000,
     )
     post_hook = Hook(
         target=HexBytes("0xD02De8aB58f29E4d9fa9e274eC7c05a04e397313"),
         calldata=HexBytes("0xd3985579"),
-        gas_limit=2040000,
+        compute_units=2040000,
     )
 
     if scenario == "no_hooks":
@@ -471,12 +471,12 @@ def test_check_hooks(scenario, expected_result):
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,  # Must match exactly
+            compute_units=pre_hook.compute_units,  # Must match exactly
         )
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -501,7 +501,7 @@ def test_check_hooks(scenario, expected_result):
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=0,
+            compute_units=0,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -526,7 +526,7 @@ def test_check_hooks(scenario, expected_result):
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,
+            compute_units=pre_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -546,17 +546,17 @@ def test_check_hooks(scenario, expected_result):
         }
         offchain_data.trades = [offchain_trade]
 
-    elif scenario == "incorrect_gas_limit":
+    elif scenario == "incorrect_compute_units":
         # Executed hook has incorrect gas limit
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=1000,  # Different from the required 1030000
+            compute_units=1000,  # Different from the required 1030000
         )
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -581,12 +581,12 @@ def test_check_hooks(scenario, expected_result):
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,
+            compute_units=pre_hook.compute_units,
         )
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -611,7 +611,7 @@ def test_check_hooks(scenario, expected_result):
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -638,12 +638,12 @@ def test_check_hooks(scenario, expected_result):
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,
+            compute_units=pre_hook.compute_units,
         )
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -668,33 +668,33 @@ def test_check_hooks(scenario, expected_result):
         pre_hook_2 = Hook(
             target=HexBytes("0xC02De8aB58f29E4d9fa9e274eC7c05a04e397313"),
             calldata=HexBytes("0xc3985579"),
-            gas_limit=1040000,
+            compute_units=1040000,
         )
         post_hook_2 = Hook(
             target=HexBytes("0xD03De8aB58f29E4d9fa9e274eC7c05a04e397314"),
             calldata=HexBytes("0xd4985580"),
-            gas_limit=2050000,
+            compute_units=2050000,
         )
 
         executed_pre_hook_1 = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,
+            compute_units=pre_hook.compute_units,
         )
         executed_pre_hook_2 = Hook(
             target=pre_hook_2.target,
             calldata=pre_hook_2.calldata,
-            gas_limit=pre_hook_2.gas_limit,
+            compute_units=pre_hook_2.compute_units,
         )
         executed_post_hook_1 = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
         executed_post_hook_2 = Hook(
             target=post_hook_2.target,
             calldata=post_hook_2.calldata,
-            gas_limit=post_hook_2.gas_limit,
+            compute_units=post_hook_2.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)
@@ -726,12 +726,12 @@ def test_check_hooks(scenario, expected_result):
         executed_pre_hook = Hook(
             target=pre_hook.target,
             calldata=pre_hook.calldata,
-            gas_limit=pre_hook.gas_limit,
+            compute_units=pre_hook.compute_units,
         )
         executed_post_hook = Hook(
             target=post_hook.target,
             calldata=post_hook.calldata,
-            gas_limit=post_hook.gas_limit,
+            compute_units=post_hook.compute_units,
         )
 
         onchain_data = Mock(spec=OnchainSettlementData)

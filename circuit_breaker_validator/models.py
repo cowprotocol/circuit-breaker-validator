@@ -19,7 +19,7 @@ class Hook:
 
     target: HexBytes
     calldata: HexBytes
-    gas_limit: int
+    compute_units: int
 
 
 @dataclass
@@ -104,7 +104,8 @@ class OnchainSettlementData:
         hook_candidates: Hooks structure containing pre-hooks and post-hooks extracted from
             transaction trace.
             - The ordering in each list reflects the actual execution order in the transaction
-            - Each Hook contains the target address, calldata, and gas_limit from the actual call
+            - Each Hook contains the target address, calldata, and compute_units from
+              the actual call
     """
 
     auction_id: int
